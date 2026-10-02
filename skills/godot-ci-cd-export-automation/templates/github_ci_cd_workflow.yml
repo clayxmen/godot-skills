@@ -1,0 +1,63 @@
+name: "🚀 Godot 4 CI/CD Pipeline"
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ "v*" ]
+
+env:
+  GODOT_VERSION: "4.3"
+  EXPORT_NAME: "GodotGame"
+
+jobs:
+  test:
+    name: "🧪 Run Unit Tests"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v4
+
+      - name: "Run GUT Headless Tests"
+        uses: barichello/godot-ci@v4.3.0
+        with:
+          godot_version: ${{ env.GODOT_VERSION }}
+        env:
+          DIRECT_CMD: "godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://test/unit -gexit"
+
+  build:
+    name: "📦 Export (${{ matrix.preset }})"
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - preset: "Windows Desktop"
+            filename: "GodotGame.exe"
+            channel: "windows"
+          - preset: "Linux"
+            filename: "GodotGame.x86_64"
+            channel: "linux"
+          - preset: "Web"
+            filename: "index.html"
+            channel: "web"
+
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v4
+
+      - name: "Create Export Dir"
+        run: mkdir -v -p build/${{ matrix.channel }}
+
+      - name: "Export Release"
+        uses: barichello/godot-ci@v4.3.0
+        with:
+          godot_version: ${{ env.GODOT_VERSION }}
+          export_preset: ${{ matrix.preset }}
+          export_path: "build/${{ matrix.channel }}/${{ matrix.filename }}"
+
+      - name: "Upload Artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: "${{ env.EXPORT_NAME }}-${{ matrix.channel }}"
+          path: "build/${{ matrix.channel }}"

@@ -1,0 +1,236 @@
+---
+name: godot-architecture-foundation
+description: |
+  Comprehensive enterprise architecture blueprint for Godot 4.x (Godot 4.3+).
+  Implements Feature-First / Clean Architecture, Component-Based Entity Design,
+  Service Locator / Dependency Injection, and Safe AutoLoad (Singleton) Governance.
+
+  Use this skill whenever:
+    1. Starting a new Godot project or restructuring an existing codebase.
+    2. Designing scene hierarchies, node relationships, and feature module boundaries.
+    3. Refactoring monolithic or tightly coupled GDScript files into decoupled components.
+    4. Managing global systems without polluting global state or creating cyclic dependencies.
+    5. Establishing clean communication pathways between Domain, Data, and Presentation layers.
+
+  Do NOT use when:
+    1. Writing visual shaders or low-level rendering pipelines.
+    2. Implementing localized mathematical algorithms without architectural impact.
+license: MIT
+metadata:
+  version: v1.0
+  engine_target: "Godot 4.3+"
+  author: "Senior Godot AI Architect & Prompt Engineer"
+---
+
+# 🏛️ Godot 4 Architecture Foundation & Clean Component Design
+
+This skill provides production-grade architectural patterns for building scalable, maintainable, and warning-free Godot 4.x games. It enforces **Feature-First Domain-Driven Design (DDD)**, **Component-over-Inheritance composition**, and **Type-Safe Dependency Injection**.
+
+---
+
+## 📐 1. Feature-First Directory Structure
+
+Avoid organizing files purely by technical type (e.g., all scripts in `scripts/`, all scenes in `scenes/`). Instead, group by **Feature Domains** for maximum modularity and isolation:
+
+```text
+res://
+├── src/
+│   ├── core/                          # Engine-wide infrastructure & base abstractions
+│   │   ├── components/                # Universal atomic components (Health, Hitbox, Velocity)
+│   │   ├── services/                  # Global service contracts & Service Locator
+│   │   │   ├── audio/
+│   │   │   ├── save_load/
+│   │   │   └── scene_loader/
+│   │   ├── singletons/                # Carefully audited AutoLoads (EventBus, ServiceRegistry)
+│   │   └── types/                     # Global Enums, Constants, and Base Custom Resources
+│   │
+│   ├── features/                      # Domain-specific feature modules
+│   │   ├── player/                    # Player module
+│   │   │   ├── data/                  # PlayerStats.tres, PlayerConfig.gd
+│   │   │   ├── domain/                # InputHandler.gd, MoveCalculator.gd
+│   │   │   └── presentation/          # Player.tscn, PlayerView.gd, PlayerAnimations.tres
+│   │   ├── combat/                    # Combat mechanics (Hitboxes, Hurtboxes, Damage)
+│   │   ├── inventory/                 # Inventory, Loot Tables, Item Resources
+│   │   ├── dialogue/                  # Dialogue trees, Yarn/DialogueManager hooks
+│   │   └── enemies/                   # Enemy archetypes, AI controllers, Spawners
+│   │
+│   ├── ui/                            # Game-wide UI Shell, HUD, Menus, Design Tokens
+│   │   ├── hud/
+│   │   ├── menus/
+│   │   └── theme/
+│   │
+│   └── shared/                        # Shared gameplay utilities, Math helpers, Extensions
+│       └── utils/
+│
+└── assets/                            # Raw and imported media assets
+    ├── audio/                         # BGM, SFX (WAV, OGG)
+    ├── fonts/                         # TTF, OTF, WOFF2
+    ├── models/                        # 3D Meshes, GLTF, FBX
+    ├── shaders/                       # Custom visual/spatial shaders (.gdshader)
+    └── textures/                      # PNG, WebP, SVG icons
+```
+
+---
+
+## 🧩 2. Composition Over Inheritance (Component-Based Design)
+
+### ⚠️ The Deep Inheritance Anti-Pattern
+```text
+❌ BAD INHERITANCE TREE:
+Node2D -> Entity -> Actor -> Character -> Combatant -> PlayerController
+(Result: Fragile base class problem, rigid hierarchies, duplicated code for FlyingEnemy vs GroundEnemy)
+```
+
+### ✅ Modern Godot 4 Component Composition
+Compose entities out of isolated, self-contained `Node` or `Node2D`/`Node3D` components. Each component owns a single responsibility and communicates upward via typed signals.
+
+```mermaid
+graph TD
+    Player["Player (CharacterBody2D)"]
+    Player --> HC["HealthComponent (Node)"]
+    Player --> MC["MovementComponent (Node)"]
+    Player --> HB["HitboxComponent (Area2D)"]
+    Player --> IC["InteractionComponent (Area2D)"]
+
+    HC -- "signal health_depleted" --> Player
+    HC -- "signal damaged(amount)" --> Player
+    HB -- "signal hit_landed(target)" --> Player
+```
+
+### 💎 Production Component Pattern: HealthComponent.gd
+```gdscript
+# res://src/core/components/health_component.gd
+class_name HealthComponent
+extends Node
+
+## Emitted when current health reaches zero.
+signal health_depleted()
+
+## Emitted whenever health changes.
+signal health_changed(new_health: float, max_health: float, delta: float)
+
+## Emitted when damage is successfully applied.
+signal damaged(amount: float, source: Node)
+
+## Emitted when healing is applied.
+signal healed(amount: float)
+
+@export_group("Health Settings")
+@export var max_health: float = 100.0:
+	set(value):
+		max_health = maxf(1.0, value)
+		current_health = minf(current_health, max_health)
+
+@export var start_health: float = 100.0
+@export var is_invulnerable: bool = false
+
+var current_health: float = 0.0:
+	private_set
+
+func _ready() -> void:
+	current_health = clampf(start_health, 0.0, max_health)
+
+## Applies damage to the component, respecting invulnerability and clamping.
+func apply_damage(amount: float, source: Node = null) -> void:
+	if is_invulnerable or current_health <= 0.0 or amount <= 0.0:
+		return
+
+	var actual_damage: float = minf(amount, current_health)
+	current_health -= actual_damage
+
+	damaged.emit(actual_damage, source)
+	health_changed.emit(current_health, max_health, -actual_damage)
+
+	if is_zero_approx(current_health) or current_health <= 0.0:
+		current_health = 0.0
+		health_depleted.emit()
+
+## Heals the component up to max_health.
+func apply_healing(amount: float) -> void:
+	if current_health <= 0.0 or amount <= 0.0:
+		return
+
+	var previous_health: float = current_health
+	current_health = minf(current_health + amount, max_health)
+	var actual_healed: float = current_health - previous_health
+
+	if actual_healed > 0.0:
+		healed.emit(actual_healed)
+		health_changed.emit(current_health, max_health, actual_healed)
+
+## Returns true if the entity is alive.
+func is_alive() -> bool:
+	return current_health > 0.0
+
+## Returns the normalized health ratio between 0.0 and 1.0.
+func get_health_ratio() -> float:
+	return current_health / max_health if max_health > 0.0 else 0.0
+```
+
+---
+
+## 💉 3. Service Locator & Dependency Injection
+
+Avoid hardcoding references to global AutoLoads everywhere. Use a **Service Locator** pattern to decouple service consumers from concrete service implementations.
+
+### 💎 Production Service Locator: ServiceLocator.gd
+```gdscript
+# res://src/core/services/service_locator.gd
+class_name ServiceLocator
+extends RefCounted
+
+static var _services: Dictionary[StringName, Object] = {}
+
+## Registers a service instance under a unique identifier key.
+static func register_service(service_name: StringName, instance: Object) -> void:
+	assert(instance != null, "Cannot register a null service instance.")
+	if _services.has(service_name):
+		push_warning("Overwriting existing service: %s" % service_name)
+	_services[service_name] = instance
+
+## Unregisters a service.
+static func unregister_service(service_name: StringName) -> void:
+	_services.erase(service_name)
+
+## Retrieves a registered service. Throws assertion error in debug if not found.
+static func get_service(service_name: StringName) -> Object:
+	assert(_services.has(service_name), "Service not found: %s. Ensure it is registered during bootstrap." % service_name)
+	return _services.get(service_name)
+
+## Safely checks if a service is currently registered.
+static func has_service(service_name: StringName) -> bool:
+	return _services.has(service_name)
+
+## Clears all registered services (useful when resetting game state).
+static func clear_all() -> void:
+	_services.clear()
+```
+
+---
+
+## 🚦 4. AutoLoad (Singleton) Governance Rules
+
+AutoLoads in Godot are powerful but frequently abused into tightly coupled god-objects. Follow these strict governance rules:
+
+| Category | Allowed as AutoLoad? | Justification / Alternative |
+| :--- | :--- | :--- |
+| **Global Event Bus** | ✅ YES | Decoupled cross-system signals (`Events.gd`) |
+| **Audio Director** | ✅ YES | Manages persistent sound channels across scene changes |
+| **Save/Persistence** | ✅ YES | Orchestrates disk I/O and slot loading |
+| **Player Instance** | ❌ **NEVER** | Store Player reference in `GameContext` or discover via Groups/ServiceLocator |
+| **Combat Calculations**| ❌ **NEVER** | Use static utility classes (`class_name CombatFormulas extends RefCounted`) |
+| **Inventory State** | ❌ **NEVER** | Store in a `PlayerInventory` Resource instance or domain controller |
+
+---
+
+## 🛡️ 5. Golden Rules & Verification Checklist
+
+1. **Downwards Invocations, Upwards Signals**:
+   * Parents call methods on children directly: `movement_component.move(input_vector)`
+   * Children notify parents via Signals: `health_component.health_depleted.connect(_on_death)`
+   * Siblings NEVER communicate directly. They communicate through their common parent or via the Event Bus.
+2. **Never Use Unchecked Node Paths**:
+   * ❌ `$../../UI/HealthBar.value = 10`
+   * ✅ `@export var health_bar: ProgressBar` or listen to `health_component.health_changed`.
+3. **No Circular Scene Dependencies**:
+   * Scene A must not instantiate Scene B if Scene B already depends statically on Scene A. Use runtime loading or Custom Resources.

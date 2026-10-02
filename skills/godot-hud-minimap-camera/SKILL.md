@@ -1,0 +1,149 @@
+---
+name: godot-hud-minimap-camera
+description: |
+  Mastery of in-game HUDs, Minimaps, and Dynamic Camera Directors for Godot 4.x (Godot 4.3+).
+  Implements Parabolic Floating Damage Numbers, SubViewport Radar Minimaps with blip tracking,
+  and Multi-Target Dynamic Framing Cameras (Phantom Camera style).
+
+  Use this skill whenever:
+    1. Displaying floating damage numbers, critical hits, and healing popups in world space.
+    2. Building 2D/3D circular or rectangular radar minimaps showing enemies, objectives, and player markers.
+    3. Implementing dynamic cameras that automatically zoom and frame multiple players/targets.
+    4. Adding camera deadzones, screen lookahead, and smooth damping.
+    5. Projecting 3D world coordinates onto 2D viewport HUD elements.
+
+  Do NOT use when:
+    1. Handling raw character physics movement (use godot-character-controllers).
+    2. Implementing input remapping menus (use godot-input-gamepad-remapping).
+license: MIT
+metadata:
+  version: v1.0
+  engine_target: "Godot 4.3+"
+  author: "Senior Godot AI Architect & Prompt Engineer"
+---
+
+# 🎥 Godot 4 HUD, Minimap & Dynamic Camera Engine
+
+This skill provides production components for **Floating Combat Text**, **Radar Minimaps**, and **Multi-Target Smart Cameras** in Godot 4.x.
+
+---
+
+## 💥 1. Floating Damage Numbers: `FloatingDamageNumberSpawner.gd`
+
+```gdscript
+# res://src/ui/hud/floating_damage_number_spawner.gd
+class_name FloatingDamageNumberSpawner
+extends Node2D
+
+@export var damage_label_scene: PackedScene
+@export var float_distance: float = 48.0
+@export var duration: float = 0.65
+
+func spawn_damage(world_pos: Vector2, amount: float, is_crit: bool = false) -> void:
+	var label: Label = Label.new()
+	label.text = str(int(amount))
+	label.global_position = world_pos + Vector2(randf_range(-12.0, 12.0), -10.0)
+	label.z_index = 100
+
+	if is_crit:
+		label.modulate = Color(1.0, 0.85, 0.1) # Golden Yellow
+		label.scale = Vector2(1.4, 1.4)
+	else:
+		label.modulate = Color(1.0, 1.0, 1.0)
+
+	add_child(label)
+
+	var target_pos: Vector2 = label.position + Vector2(randf_range(-20.0, 20.0), -float_distance)
+	var tw: Tween = create_tween().set_parallel(true)
+	
+	# Jump upward with parabolic ease-out
+	tw.tween_property(label, "position", target_pos, duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	# Fade out
+	tw.tween_property(label, "modulate:a", 0.0, duration).set_delay(duration * 0.4)
+	# Cleanup
+	tw.chain().tween_callback(label.queue_free)
+```
+
+---
+
+## 🧭 2. SubViewport Radar Minimap: `MinimapRadar2D.gd`
+
+```gdscript
+# res://src/ui/hud/minimap_radar_2d.gd
+class_name MinimapRadar2D
+extends Control
+
+@export var player: Node2D
+@export var radar_radius: float = 80.0
+@export var zoom_factor: float = 0.15
+@export var enemy_group: StringName = &"enemy"
+
+func _draw() -> void:
+	if not player or not is_instance_valid(player):
+		return
+
+	var center: Vector2 = size * 0.5
+
+	# Draw radar background circle
+	draw_circle(center, radar_radius, Color(0.05, 0.05, 0.08, 0.8))
+	draw_arc(center, radar_radius, 0, TAU, 32, Color(0.2, 0.8, 1.0, 0.5), 2.0)
+
+	# Draw player center blip
+	draw_circle(center, 4.0, Color(0.2, 1.0, 0.3))
+
+	# Draw enemy blips
+	var enemies: Array[Node] = get_tree().get_nodes_in_group(enemy_group)
+	for node: Node in enemies:
+		if not (node is Node2D):
+			continue
+		var enemy: Node2D = node as Node2D
+		var offset: Vector2 = (enemy.global_position - player.global_position) * zoom_factor
+
+		if offset.length() <= radar_radius - 4.0:
+			draw_circle(center + offset, 3.0, Color(1.0, 0.2, 0.2))
+		else:
+			# Clamp to radar edge
+			var edge_pos: Vector2 = center + offset.normalized() * (radar_radius - 4.0)
+			draw_circle(edge_pos, 2.0, Color(1.0, 0.2, 0.2, 0.6))
+
+func _process(_delta: float) -> void:
+	queue_redraw()
+```
+
+---
+
+## 🎬 3. Multi-Target Dynamic Camera: `SmartCameraController2D.gd`
+
+```gdscript
+# res://src/core/services/camera/smart_camera_controller_2d.gd
+class_name SmartCameraController2D
+extends Camera2D
+
+@export var targets: Array[Node2D] = []
+@export var smooth_speed: float = 6.0
+@export var min_zoom: float = 0.6
+@export var max_zoom: float = 1.4
+@export var margin_padding: Vector2 = Vector2(160.0, 120.0)
+
+func _process(delta: float) -> void:
+	var valid_targets: Array[Node2D] = targets.filter(func(t: Node2D) -> bool: return is_instance_valid(t))
+	if valid_targets.is_empty():
+		return
+
+	var bounds: Rect2 = Rect2(valid_targets[0].global_position, Vector2.ZERO)
+	for t: Node2D in valid_targets:
+		bounds = bounds.expand(t.global_position)
+
+	# Calculate center position
+	var target_center: Vector2 = bounds.get_center()
+	global_position = global_position.lerp(target_center, smooth_speed * delta)
+
+	# Calculate zoom level to encompass all targets
+	var viewport_size: Vector2 = get_viewport_rect().size
+	var desired_size: Vector2 = bounds.size + margin_padding * 2.0
+	var zoom_x: float = viewport_size.x / maxf(desired_size.x, 1.0)
+	var zoom_y: float = viewport_size.y / maxf(desired_size.y, 1.0)
+	var target_zoom: float = clampf(minf(zoom_x, zoom_y), min_zoom, max_zoom)
+
+	zoom = zoom.lerp(Vector2(target_zoom, target_zoom), smooth_speed * delta)
+```

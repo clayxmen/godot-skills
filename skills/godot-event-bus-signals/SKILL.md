@@ -1,0 +1,191 @@
+---
+name: godot-event-bus-signals
+description: |
+  Enterprise Event Bus and Typed Signal Architecture for Godot 4.x (Godot 4.3+).
+  Enables decoupled cross-system communication, domain-specific signal buses,
+  type-safe emissions, one-shot connections, and memory-safe subscription management.
+
+  Use this skill whenever:
+    1. Connecting UI elements to gameplay systems without direct scene references.
+    2. Decoupling Audio, VFX, Quests, and Analytics triggers from core game entities.
+    3. Emitting and listening to game-wide events (e.g., game_over, score_updated, stage_completed).
+    4. Eliminating spaghetti signal wiring and dangling Callable callbacks.
+    5. Building request-response patterns or async event orchestrations in Godot.
+
+  Do NOT use when:
+    1. Handling tightly coupled parent-to-child method calls within the same scene.
+    2. Processing high-frequency per-frame physics calculations (use direct method calls or PhysicsServer).
+license: MIT
+metadata:
+  version: v1.0
+  engine_target: "Godot 4.3+"
+  author: "Senior Godot AI Architect & Prompt Engineer"
+---
+
+# 📡 Godot 4 Typed Event Bus & Signal Architecture
+
+This skill provides the blueprints for implementing a scalable, decoupled, and type-safe **Event Bus & Signal Architecture** in Godot 4.x.
+
+---
+
+## 🏗️ 1. Domain-Partitioned Event Bus Architecture
+
+Instead of dumping hundreds of unrelated signals into a single chaotic AutoLoad, partition signals into **Domain-Specific Signal Groups** under a unified `Events` namespace.
+
+```mermaid
+flowchart LR
+    subgraph Senders
+        P["Player"]
+        E["Enemy"]
+        Q["QuestSystem"]
+    end
+
+    subgraph "Events (AutoLoad)"
+        GE["GameplayEvents\n(player_damaged, boss_slain)"]
+        UE["UIEvents\n(inventory_opened, dialogue_started)"]
+        AE["AudioEvents\n(bgm_crossfade, sfx_requested)"]
+    end
+
+    subgraph Listeners
+        HUD["HUD / HealthBar"]
+        AM["AudioManager"]
+        QS["QuestTracker"]
+    end
+
+    P -- Emit --> GE
+    E -- Emit --> GE
+    Q -- Emit --> UE
+
+    GE -- Listen --> HUD
+    GE -- Listen --> AM
+    GE -- Listen --> QS
+```
+
+---
+
+## 💎 2. Production Typed Event Bus: Events.gd
+
+Add `Events.gd` as an AutoLoad in `Project Settings -> Globals -> Autoloads`.
+
+```gdscript
+# res://src/core/singletons/events.gd
+extends Node
+## Centralized Typed Event Bus for Godot 4.x
+## All game-wide decoupled communications flow through these categorized signals.
+
+# ==============================================================================
+# ⚔️ GAMEPLAY SIGNALS
+# ==============================================================================
+## Emitted when an entity takes damage.
+signal entity_damaged(target: Node, amount: float, source: Node)
+
+## Emitted when the player's health or vitality changes.
+signal player_health_changed(current: float, max_val: float)
+
+## Emitted when the player dies.
+signal player_died()
+
+## Emitted when an enemy is defeated, awarding score/exp.
+signal enemy_defeated(enemy_id: StringName, exp_reward: int, position: Vector3)
+
+# ==============================================================================
+# 🖥️ UI & HUD SIGNALS
+# ==============================================================================
+## Emitted to show a floating damage number in world space.
+signal damage_number_spawned(world_position: Vector3, damage_amount: float, is_critical: bool)
+
+## Emitted when a menu screen requests to open or close.
+signal menu_toggled(menu_name: StringName, is_open: bool)
+
+## Emitted to push a toast / notification banner to the HUD.
+signal notification_requested(title: String, message: String, icon: Texture2D)
+
+# ==============================================================================
+# 🎵 AUDIO & VFX SIGNALS
+# ==============================================================================
+## Emitted to request a sound effect playback at a specific location.
+signal sfx_playback_requested(sfx_id: StringName, world_pos: Vector3, pitch_variance: float)
+
+## Emitted to crossfade the background music track.
+signal bgm_crossfade_requested(track_id: StringName, fade_duration_seconds: float)
+
+## Emitted to trigger a directional camera shake.
+signal camera_shake_requested(trauma_intensity: float, decay_rate: float)
+```
+
+---
+
+## 🔌 3. Safe Signal Subscription & Cleanup Protocols
+
+In Godot 4, connecting signals using `Callable` is strongly typed and safe. However, follow these lifecycle invariants to eliminate memory leaks and crashes:
+
+### 🛡️ Connection Rules:
+1. **Always Connect in `_ready()` or `_enter_tree()`**.
+2. **Auto-Disconnection on Node Queue-Free**:
+   Godot 4 automatically disconnects signals when the receiving `Node` is freed with `queue_free()`.
+3. **Guard Against Duplicate Connections**:
+   Use `signal.is_connected(callable)` before connecting dynamic listeners.
+4. **Use One-Shot Connections for Single Events**:
+   `Events.player_died.connect(_on_game_over, CONNECT_ONE_SHOT)`
+
+### 💎 Production Listener Implementation:
+```gdscript
+# res://src/ui/hud/health_bar_view.gd
+class_name HealthBarView
+extends ProgressBar
+
+func _ready() -> void:
+	# Safe connection to Global Event Bus
+	if not Events.player_health_changed.is_connected(_on_player_health_changed):
+		Events.player_health_changed.connect(_on_player_health_changed)
+
+	# Listen for player death once
+	Events.player_died.connect(_on_player_died, CONNECT_ONE_SHOT)
+
+func _on_player_health_changed(current: float, max_val: float) -> void:
+	max_value = max_val
+	value = current
+
+func _on_player_died() -> void:
+	modulate = Color(0.5, 0.5, 0.5, 0.8) # Gray out health bar
+```
+
+---
+
+## 🔄 4. Request-Response Async Pattern via Callbacks
+
+When one subsystem needs data or confirmation from another without direct coupling, use a **Callable Callback** in the signal emission.
+
+```gdscript
+# Signal Definition in Events.gd
+signal save_data_requested(save_slot: int, on_complete_callback: Callable)
+
+# Sender (UI Screen)
+func _on_save_button_pressed() -> void:
+	Events.save_data_requested.emit(1, func(success: bool) -> void:
+		if success:
+			print("Game saved successfully!")
+		else:
+			print("Failed to save game.")
+	)
+
+# Receiver (SaveSystem AutoLoad)
+func _ready() -> void:
+	Events.save_data_requested.connect(_on_save_data_requested)
+
+func _on_save_data_requested(slot: int, callback: Callable) -> void:
+	var result: bool = _perform_disk_save(slot)
+	if callback.is_valid():
+		callback.call(result)
+```
+
+---
+
+## ⚠️ 5. Signal Anti-Patterns to Avoid
+
+| ❌ Anti-Pattern | Why it Fails | ✅ Recommended Solution |
+| :--- | :--- | :--- |
+| **String-based Connections** | `connect("my_signal", self, "my_func")` has zero compile-time checks | `my_signal.connect(_on_my_func)` |
+| **Emitting on Every Physics Tick** | Emitting 1,000 signals per frame inside `_physics_process` causes Callable allocation overhead | Update state directly or batch emissions |
+| **Child to Sibling Signals** | Sibling A connecting to Sibling B creates tight lateral coupling | Communicate via Parent or Global Event Bus |
+| **Untyped Signal Arguments** | `signal damaged(a, b)` leads to runtime type errors | `signal damaged(amount: float, source: Node)` |

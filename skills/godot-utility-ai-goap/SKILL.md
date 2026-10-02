@@ -1,0 +1,199 @@
+---
+name: godot-utility-ai-goap
+description: |
+  Goal-Oriented Action Planning (GOAP) and Utility AI decision engine for Godot 4.x (Godot 4.3+).
+  Implements symbolic A* action graph search, dynamic world state evaluation,
+  precondition-effect chaining, and non-linear Utility response curves (Logistic/Exponential).
+
+  Use this skill whenever:
+    1. Building emergent, complex NPC behaviors (e.g., Sims, RimWorld, or F.E.A.R. style smart tactical AI).
+    2. Solving multi-step goal paths dynamically without hardcoded decision branches.
+    3. Balancing multiple competing needs/desires (Hunger, Fatigue, Tactical Safety, Greed).
+    4. Allowing NPCs to formulate new plans on-the-fly when interruptions occur.
+    5. Evaluating actions via mathematical utility curves instead of binary true/false conditions.
+
+  Do NOT use when:
+    1. Implementing scripted, fixed-order boss phases (use godot-state-machine-hsm).
+    2. Handling low-level frame-by-frame physics movement.
+license: MIT
+metadata:
+  version: v1.0
+  engine_target: "Godot 4.3+"
+  author: "Senior Godot AI Architect & Prompt Engineer"
+---
+
+# 🎯 Godot 4 GOAP & Utility AI Architecture
+
+This skill provides a high-level **Goal-Oriented Action Planning (GOAP)** solver and **Utility Response Curve** engine for Godot 4.x.
+
+---
+
+## 🏗️ 1. GOAP vs Utility AI Architecture
+
+GOAP searches backward/forward from a **Goal** to the current **WorldState** using A* search, producing an optimal sequence of **Actions**.
+
+```mermaid
+graph LR
+    WS["Current WorldState\n{has_weapon: false, enemy_near: true}"]
+    
+    subgraph "A* Action Plan"
+        A1["Action: PickUpGun\nPre: {gun_available: true}\nEff: {has_weapon: true}"]
+        A2["Action: TakeCover\nPre: {has_weapon: true}\nEff: {in_cover: true}"]
+        A3["Action: AttackEnemy\nPre: {has_weapon: true, in_cover: true}\nEff: {enemy_dead: true}"]
+    end
+    
+    Goal["Goal: KillEnemy\nDesired: {enemy_dead: true}"]
+
+    WS --> A1 --> A2 --> A3 --> Goal
+```
+
+---
+
+## 💎 2. Core GOAP Architecture
+
+### 📋 Action Definition: `GOAPAction.gd`
+```gdscript
+# res://src/core/components/goap/goap_action.gd
+class_name GOAPAction
+extends Resource
+
+@export var action_name: StringName = &""
+@export var cost: float = 1.0
+@export var preconditions: Dictionary = {} # StringName -> Variant
+@export var effects: Dictionary = {}       # StringName -> Variant
+
+## Checks if the action can execute given the current agent & world state.
+func is_valid(_actor: Node, _world_state: Dictionary) -> bool:
+	return true
+
+## Executes action logic. Returns true when action completes.
+func execute(_actor: Node, _delta: float) -> bool:
+	return true
+```
+
+### 🎯 Goal Definition: `GOAPGoal.gd`
+```gdscript
+# res://src/core/components/goap/goap_goal.gd
+class_name GOAPGoal
+extends Resource
+
+@export var goal_name: StringName = &""
+@export var priority: float = 10.0
+@export var desired_state: Dictionary = {} # StringName -> Variant
+
+## Evaluates the dynamic priority of this goal based on agent needs.
+func calculate_priority(_actor: Node, _world_state: Dictionary) -> float:
+	return priority
+```
+
+### 🔍 A* Plan Solver: `GOAPPlanner.gd`
+```gdscript
+# res://src/core/components/goap/goap_planner.gd
+class_name GOAPPlanner
+extends RefCounted
+
+## Formulates an action plan (sequence of actions) to satisfy goal state.
+func plan(actor: Node, available_actions: Array[GOAPAction], world_state: Dictionary, desired_state: Dictionary) -> Array[GOAPAction]:
+	var usable_actions: Array[GOAPAction] = []
+	for action: GOAPAction in available_actions:
+		if action.is_valid(actor, world_state):
+			usable_actions.append(action)
+
+	# Graph search (A*)
+	var leaves: Array[PlanNode] = []
+	var start_node: PlanNode = PlanNode.new(null, 0.0, world_state, null)
+	
+	var success: bool = _build_graph(start_node, leaves, usable_actions, desired_state)
+	if not success or leaves.is_empty():
+		return []
+
+	# Find cheapest leaf
+	var cheapest: PlanNode = leaves[0]
+	for leaf: PlanNode in leaves:
+		if leaf.running_cost < cheapest.running_cost:
+			cheapest = leaf
+
+	# Unwind plan
+	var result_plan: Array[GOAPAction] = []
+	var curr: PlanNode = cheapest
+	while curr != null:
+		if curr.action != null:
+			result_plan.push_front(curr.action)
+		curr = curr.parent
+
+	return result_plan
+
+func _build_graph(parent: PlanNode, leaves: Array[PlanNode], actions: Array[GOAPAction], desired: Dictionary) -> bool:
+	var found_path: bool = false
+
+	for action: GOAPAction in actions:
+		if _matches_conditions(action.preconditions, parent.state):
+			var current_state: Dictionary = parent.state.duplicate()
+			for key in action.effects:
+				current_state[key] = action.effects[key]
+
+			var node: PlanNode = PlanNode.new(parent, parent.running_cost + action.cost, current_state, action)
+
+			if _matches_conditions(desired, current_state):
+				leaves.append(node)
+				found_path = true
+			else:
+				var subset: Array[GOAPAction] = actions.duplicate()
+				subset.erase(action)
+				var sub_found: bool = _build_graph(node, leaves, subset, desired)
+				if sub_found:
+					found_path = true
+
+	return found_path
+
+func _matches_conditions(conditions: Dictionary, state: Dictionary) -> bool:
+	for key in conditions:
+		if not state.has(key) or state[key] != conditions[key]:
+			return false
+	return true
+
+class PlanNode extends RefCounted:
+	var parent: PlanNode
+	var running_cost: float
+	var state: Dictionary
+	var action: GOAPAction
+
+	func _init(p_parent: PlanNode, p_cost: float, p_state: Dictionary, p_action: GOAPAction) -> void:
+		parent = p_parent
+		running_cost = p_cost
+		state = p_state
+		action = p_action
+```
+
+---
+
+## 📈 3. Utility AI Response Curves: `UtilityCurve.gd`
+
+```gdscript
+# res://src/core/components/utility_ai/utility_curve.gd
+class_name UtilityCurve
+extends Resource
+
+enum CurveType { LINEAR, EXPONENTIAL, LOGISTIC, NORMAL }
+
+@export var curve_type: CurveType = CurveType.LOGISTIC
+@export var slope: float = 1.0
+@export var exponent: float = 2.0
+@export var midpoint: float = 0.5
+
+## Evaluates input x (clamped between 0.0 and 1.0) and outputs normalized utility (0.0 to 1.0).
+func evaluate(x: float) -> float:
+	x = clampf(x, 0.0, 1.0)
+	match curve_type:
+		CurveType.LINEAR:
+			return clampf(slope * (x - midpoint) + 0.5, 0.0, 1.0)
+		CurveType.EXPONENTIAL:
+			return clampf(pow(x, exponent), 0.0, 1.0)
+		CurveType.LOGISTIC:
+			# Standard Sigmoid Response Curve: 1 / (1 + e^(-k * (x - x0)))
+			return clampf(1.0 / (1.0 + exp(-10.0 * slope * (x - midpoint))), 0.0, 1.0)
+		CurveType.NORMAL:
+			var diff: float = x - midpoint
+			return clampf(exp(-(diff * diff) / (2.0 * 0.15 * 0.15)), 0.0, 1.0)
+	return x
+```

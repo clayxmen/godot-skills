@@ -1,0 +1,227 @@
+---
+name: godot-inventory-item-system
+description: |
+  Complete Data-Driven Inventory, Equipment, and Loot Table system for Godot 4.x (Godot 4.3+).
+  Implements typed inventory slots, auto-stacking, item splitting, weight constraints,
+  equipment slot managers, and weighted probability loot generation.
+
+  Use this skill whenever:
+    1. Building player/chest inventories (Slot-based, Weight-based, or Grid-based).
+    2. Implementing item stacking, item splitting, slot swapping, and item consumption.
+    3. Designing equipment and gear management (Armor, Weapons, Accessories).
+    4. Generating procedural monster drops, chest loot, or shop wares using Loot Tables.
+    5. Serializing inventory contents to disk for save/load operations.
+
+  Do NOT use when:
+    1. Managing dialog trees or quest conditions (use godot-dialogue-quest-engine).
+    2. Creating raw database tables for thousands of relational entities (use godot-sqlite-local-db).
+license: MIT
+metadata:
+  version: v1.0
+  engine_target: "Godot 4.3+"
+  author: "Senior Godot AI Architect & Prompt Engineer"
+---
+
+# 🎒 Godot 4 Inventory, Equipment & Loot System
+
+This skill provides a complete, data-driven, and type-safe **Inventory and Loot Architecture** for Godot 4.x.
+
+---
+
+## 🏗️ 1. Data-Driven Architecture Overview
+
+All items are instances of `ItemData` (Custom Resource). The inventory operates on an array of `InventorySlot` instances.
+
+```mermaid
+flowchart TD
+    subgraph Data Layer
+        ID["ItemData (Resource)\nid, max_stack, category"]
+        LT["LootTable (Resource)\nweighted entries, min/max rolls"]
+    end
+
+    subgraph Runtime System
+        IS["InventorySlot\nitem: ItemData, count: int"]
+        IC["InventoryComponent\nslots: Array[InventorySlot]\nmax_slots: 24, max_weight: 100.0"]
+    end
+
+    LT -- "roll_loot()" --> IS
+    IS --> IC
+    IC -- "signal inventory_updated" --> UI["Inventory UI View"]
+```
+
+---
+
+## 💎 2. Inventory Slot: `InventorySlot.gd`
+
+```gdscript
+# res://src/core/types/inventory_slot.gd
+class_name InventorySlot
+extends RefCounted
+
+signal slot_changed()
+
+var item: ItemData = null:
+	set(value):
+		item = value
+		if item == null:
+			count = 0
+		slot_changed.emit()
+
+var count: int = 0:
+	set(value):
+		count = max(0, value)
+		if count == 0:
+			item = null
+		slot_changed.emit()
+
+func is_empty() -> bool:
+	return item == null or count <= 0
+
+func can_stack_with(other_item: ItemData) -> bool:
+	if is_empty() or other_item == null:
+		return false
+	return item.id == other_item.id and count < item.max_stack_size
+
+func get_remaining_capacity() -> int:
+	if is_empty() or item == null:
+		return 999
+	return item.max_stack_size - count
+```
+
+---
+
+## 💎 3. Inventory Component: `InventoryComponent.gd`
+
+```gdscript
+# res://src/core/components/inventory_component.gd
+class_name InventoryComponent
+extends Node
+
+signal inventory_updated()
+signal item_added(item: ItemData, amount: int)
+signal item_removed(item: ItemData, amount: int)
+
+@export var max_slots: int = 24
+@export var max_carry_weight: float = 100.0
+
+var slots: Array[InventorySlot] = []
+
+func _ready() -> void:
+	slots.resize(max_slots)
+	for i: int in range(max_slots):
+		var slot: InventorySlot = InventorySlot.new()
+		slot.slot_changed.connect(_on_slot_changed)
+		slots[i] = slot
+
+func _on_slot_changed() -> void:
+	inventory_updated.emit()
+
+## Adds an item to the inventory, stacking where possible. Returns remaining unadded count.
+func add_item(item: ItemData, amount: int = 1) -> int:
+	if item == null or amount <= 0:
+		return amount
+
+	var remaining: int = amount
+
+	# 1. Fill existing matching stacks
+	for slot: InventorySlot in slots:
+		if slot.can_stack_with(item):
+			var space: int = slot.get_remaining_capacity()
+			var to_add: int = mini(remaining, space)
+			slot.count += to_add
+			remaining -= to_add
+			if remaining <= 0:
+				break
+
+	# 2. Fill empty slots
+	if remaining > 0:
+		for slot: InventorySlot in slots:
+			if slot.is_empty():
+				var to_add: int = mini(remaining, item.max_stack_size)
+				slot.item = item
+				slot.count = to_add
+				remaining -= to_add
+				if remaining <= 0:
+					break
+
+	var total_added: int = amount - remaining
+	if total_added > 0:
+		item_added.emit(item, total_added)
+
+	return remaining
+
+## Removes an item by ID. Returns true if the full quantity was successfully removed.
+func remove_item_by_id(item_id: StringName, amount: int = 1) -> bool:
+	if get_item_count(item_id) < amount:
+		return false
+
+	var remaining: int = amount
+	for slot: InventorySlot in slots:
+		if not slot.is_empty() and slot.item.id == item_id:
+			if slot.count >= remaining:
+				slot.count -= remaining
+				remaining = 0
+				break
+			else:
+				remaining -= slot.count
+				slot.count = 0
+
+	return remaining == 0
+
+## Returns the total count of a specific item across all slots.
+func get_item_count(item_id: StringName) -> int:
+	var total: int = 0
+	for slot: InventorySlot in slots:
+		if not slot.is_empty() and slot.item.id == item_id:
+			total += slot.count
+	return total
+
+## Swaps the contents of two slots.
+func swap_slots(index_a: int, index_b: int) -> void:
+	if index_a < 0 or index_a >= max_slots or index_b < 0 or index_b >= max_slots:
+		return
+	var temp_item: ItemData = slots[index_a].item
+	var temp_count: int = slots[index_a].count
+	slots[index_a].item = slots[index_b].item
+	slots[index_a].count = slots[index_b].count
+	slots[index_b].item = temp_item
+	slots[index_b].count = temp_count
+```
+
+---
+
+## 🎲 4. Weighted Loot Table: `LootTable.gd`
+
+```gdscript
+# res://src/core/types/loot_table.gd
+class_name LootTable
+extends Resource
+
+@export var min_item_drops: int = 1
+@export var max_item_drops: int = 3
+@export var drop_entries: Array[LootDropEntry] = []
+
+## Rolls the loot table and returns an array of generated item/quantity pairs.
+func roll_loot() -> Array[Dictionary]:
+	var results: Array[Dictionary] = []
+	if drop_entries.is_empty():
+		return results
+
+	var num_drops: int = randi_range(min_item_drops, max_item_drops)
+	var total_weight: float = 0.0
+	for entry: LootDropEntry in drop_entries:
+		total_weight += entry.weight
+
+	for i: int in range(num_drops):
+		var roll: float = randf_range(0.0, total_weight)
+		var cumulative: float = 0.0
+		for entry: LootDropEntry in drop_entries:
+			cumulative += entry.weight
+			if roll <= cumulative:
+				if randf() <= entry.chance:
+					var quantity: int = randi_range(entry.min_quantity, entry.max_quantity)
+					results.append({"item": entry.item, "quantity": quantity})
+				break
+
+	return results
+```
