@@ -1,4 +1,45 @@
+# EditorConfig is awesome: https://EditorConfig.org
+
+# Top-most EditorConfig file
 root = true
 
 [*]
 charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# GDScript files use tabs for indentation
+[*.gd]
+indent_style = tab
+indent_size = 4
+
+# Shaders
+[*.gdshader]
+indent_style = tab
+indent_size = 4
+
+# Godot scene and resource files
+[*.{tscn,tres,godot,cfg}]
+indent_style = tab
+indent_size = 4
+
+# YAML files use 2 spaces
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# JSON & Markdown files
+[*.json]
+indent_style = space
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+indent_style = space
+indent_size = 2
+
+# Shell & PowerShell scripts
+[*.{sh,bash,ps1}]
+indent_style = space
+indent_size = 4
