@@ -152,18 +152,43 @@ mindmap
 
 ---
 
-## 🚀 Bắt Đầu Nhanh (Quickstart)
+## 🚀 Bắt Đầu Nhanh (Quickstart & One-Liner Installer)
 
-### 1. Sử dụng cùng AI Agent (Antigravity / Cursor / Claude Code)
-Khi yêu cầu AI phát triển bất kỳ tính năng nào trong Godot, bạn chỉ cần gọi tên Skill hoặc mô tả tính năng tương ứng. AI sẽ tự động kích hoạt `SKILL.md` và sinh mã chuẩn xác:
+### 1. Cài Đặt Nhanh 1 Dòng Lệnh Vào Bất Kỳ Dự Án Godot Nào
+Bạn có thể cài đặt bộ khung Clean Architecture và toàn bộ AI Agent rules vào **bất kỳ thư mục dự án Godot nào trên máy**:
+
+```powershell
+# Windows PowerShell: Khởi tạo cho dự án hiện tại hoặc dự án mục tiêu
+pwsh install.ps1 -Target "D:\MyGodotProjects\NewGame"
+
+# Hoặc cài đặt Global cho toàn bộ các project trên máy tính:
+pwsh install.ps1 -Global
+```
+
+```bash
+# Linux / macOS:
+./install.sh --target "/path/to/my_project"
+```
+
+### 2. Sử Dụng Công Cụ CLI (`tools/godot_skills_cli.py`)
+```bash
+# Quét và kiểm tra độ chuẩn mực Type-Safety & lỗi thời Godot 3:
+python tools/godot_skills_cli.py doctor --target "D:\MyGame"
+
+# Chèn template của phân hệ mong muốn (Combat, Inventory, AI...):
+python tools/godot_skills_cli.py add combat --target "D:\MyGame"
+
+# Xuất AI rules sang Antigravity, Cursor, Claude Code, Copilot:
+python tools/export_ai_rules.py --target "D:\MyGame" --all
+```
+
+### 3. Prompting Với AI Coding Assistants (Antigravity / Cursor / Claude Code)
+Sau khi cài đặt vào dự án, bạn chỉ cần gõ prompt như bình thường. AI sẽ tự động kích hoạt kiến thức chuyên gia:
 
 ```text
 Prompt mẫu cho AI:
 "Áp dụng skill godot-combat-hitbox-hurtbox để dựng hệ thống combat melee kiếm thuật cho Player kèm theo Freeze Frame và Screen Shake."
 ```
-
-### 2. Sử dụng Trực Tiếp Templates Vào Dự Án Của Bạn
-Mỗi thư mục `skills/[skill-name]/templates/` chứa các file `.gd`, `.gdshader` đã sẵn sàng chạy. Bạn chỉ cần copy vào thư mục `src/` của dự án và gắn vào Scene tương ứng.
 
 ---
 

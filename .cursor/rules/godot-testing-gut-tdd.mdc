@@ -1,0 +1,132 @@
+---
+description: "|"
+globs: "*.gd, *.tscn, *.tres, *.gdshader, project.godot"
+alwaysApply: false
+---
+
+# 🧪 Godot 4 Automated Testing & TDD with GUT
+
+This skill provides the standards and templates for writing **automated unit, integration, and scene tests** using the **GUT (Godot Unit Test)** framework in Godot 4.x.
+
+---
+
+## 🏗️ 1. Test Architecture & Directory Layout
+
+```text
+res://
+├── test/
+│   ├── unit/                      # Isolated logic tests (Resources, Components, Math)
+│   │   ├── test_health_component.gd
+│   │   ├── test_inventory_component.gd
+│   │   └── test_goap_planner.gd
+│   ├── integration/               # Multi-component interaction tests
+│   │   ├── test_combat_flow.gd
+│   │   └── test_quest_progression.gd
+│   └── fixtures/                  # Mock resources and test scene prefabs
+```
+
+```mermaid
+flowchart TD
+    Runner["Headless CLI Runner:\ngodot --headless -s addons/gut/gut_cmdln.gd -gdir=res://test/unit -gexit"]
+    Runner --> Discovery["Discover all test_*.gd scripts"]
+    Discovery --> Life["Lifecycle: before_all -> before_each -> test_* -> after_each -> after_all"]
+    Life --> Assert["Evaluate Assertions:\nassert_eq, assert_true, assert_signal_emitted"]
+    Assert --> Report["Generate JUnit XML / Console Test Summary"]
+```
+
+---
+
+## 💎 2. Production Unit Test: `test_health_component.gd`
+
+```gdscript
+# res://test/unit/test_health_component.gd
+extends GutTest
+
+var _health_component: HealthComponent = null
+
+func before_each() -> void:
+	_health_component = HealthComponent.new()
+	_health_component.max_health = 100.0
+	_health_component.start_health = 100.0
+	add_child_autofree(_health_component)
+	watch_signals(_health_component)
+
+func test_initial_health_matches_max_health() -> void:
+	assert_eq(_health_component.current_health, 100.0, "Current health should equal max health upon initialization.")
+	assert_true(_health_component.is_alive(), "Component should report alive.")
+
+func test_apply_damage_decreases_health_and_emits_signals() -> void:
+	_health_component.apply_damage(35.0)
+
+	assert_eq(_health_component.current_health, 65.0, "Health should be reduced to 65.")
+	assert_signal_emitted(_health_component, "damaged", "damaged signal should fire.")
+	assert_signal_emitted(_health_component, "health_changed", "health_changed signal should fire.")
+	assert_signal_not_emitted(_health_component, "health_depleted", "health_depleted should not fire when alive.")
+
+func test_apply_lethal_damage_triggers_death() -> void:
+	_health_component.apply_damage(150.0)
+
+	assert_eq(_health_component.current_health, 0.0, "Health should clamp to 0.")
+	assert_false(_health_component.is_alive(), "Component should report not alive.")
+	assert_signal_emitted(_health_component, "health_depleted", "health_depleted signal must fire on fatal hit.")
+
+func test_invulnerable_entity_ignores_damage() -> void:
+	_health_component.is_invulnerable = true
+	_health_component.apply_damage(50.0)
+
+	assert_eq(_health_component.current_health, 100.0, "Health must not change when invulnerable.")
+	assert_signal_not_emitted(_health_component, "damaged")
+```
+
+---
+
+## 💎 3. Production Inventory Test: `test_inventory_component.gd`
+
+```gdscript
+# res://test/unit/test_inventory_component.gd
+extends GutTest
+
+var _inventory: InventoryComponent = null
+var _test_item: ItemData = null
+
+func before_each() -> void:
+	_inventory = InventoryComponent.new()
+	_inventory.max_slots = 4
+	add_child_autofree(_inventory)
+
+	_test_item = ItemData.new()
+	_test_item.id = &"item_potion"
+	_test_item.max_stack_size = 5
+
+	watch_signals(_inventory)
+
+func test_add_item_stacks_correctly() -> void:
+	var remainder: int = _inventory.add_item(_test_item, 3)
+	assert_eq(remainder, 0, "All 3 potions should fit in inventory.")
+	assert_eq(_inventory.get_item_count(&"item_potion"), 3)
+
+	# Add 4 more (should fill first stack to 5 and spill 2 into slot 2)
+	remainder = _inventory.add_item(_test_item, 4)
+	assert_eq(remainder, 0)
+	assert_eq(_inventory.get_item_count(&"item_potion"), 7)
+	assert_eq(_inventory.slots[0].count, 5, "Slot 0 should be max stacked.")
+	assert_eq(_inventory.slots[1].count, 2, "Slot 1 should hold the overflow.")
+
+func test_remove_item_by_id() -> void:
+	_inventory.add_item(_test_item, 4)
+	var success: bool = _inventory.remove_item_by_id(&"item_potion", 3)
+
+	assert_true(success, "Should successfully remove 3 items.")
+	assert_eq(_inventory.get_item_count(&"item_potion"), 1)
+```
+
+---
+
+## 💻 4. Headless CLI Execution Command
+
+Run test suites automatically in headless terminals or CI pipelines:
+
+```powershell
+# Run all unit tests headless in Windows PowerShell
+& "godot" --headless -s addons/gut/gut_cmdln.gd -gdir="res://test/unit" -gexit
+```

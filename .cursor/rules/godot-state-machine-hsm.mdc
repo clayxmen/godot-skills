@@ -1,0 +1,197 @@
+---
+description: "|"
+globs: "*.gd, *.tscn, *.tres, *.gdshader, project.godot"
+alwaysApply: false
+---
+
+# 🕹️ Godot 4 Hierarchical State Machine (HSM) Architecture
+
+This skill provides a robust, decoupled, and typed **Hierarchical Finite State Machine** system for Godot 4.x entities.
+
+---
+
+## 🏗️ 1. Hierarchical State Architecture
+
+Instead of a giant flat FSM where every state knows every other state, use a nested hierarchy with clean delegation.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Grounded
+    
+    state Grounded {
+        [*] --> Idle
+        Idle --> Running : move input > 0
+        Running --> Idle : move input == 0
+    }
+    
+    Grounded --> InAir : jump / fall
+    
+    state InAir {
+        [*] --> Jumping
+        Jumping --> Falling : velocity.y >= 0
+    }
+    
+    InAir --> Grounded : is_on_floor()
+    Grounded --> Attacking : attack pressed
+    Attacking --> Grounded : animation finished
+```
+
+---
+
+## 💎 2. Core State Base Class (`State.gd`)
+
+```gdscript
+# res://src/core/components/state_machine/state.gd
+class_name State
+extends Node
+
+## Base State class for Godot 4 Hierarchical State Machines.
+## All individual state nodes inherit from this class.
+
+signal transitioned(next_state_name: StringName, payload: Dictionary)
+
+## Reference to the root actor (e.g., CharacterBody2D / CharacterBody3D).
+var actor: Node = null
+
+## Reference to the parent StateMachine.
+var state_machine: StateMachine = null
+
+## Called once when the State Machine initializes.
+func initialize(p_actor: Node, p_machine: StateMachine) -> void:
+	actor = p_actor
+	state_machine = p_machine
+
+## Called when entering this state.
+func enter(_payload: Dictionary = {}) -> void:
+	pass
+
+## Called when exiting this state.
+func exit() -> void:
+	pass
+
+## Called every frame from _process().
+func update(_delta: float) -> void:
+	pass
+
+## Called every physics frame from _physics_process().
+func physics_update(_delta: float) -> void:
+	pass
+
+## Called during unhandled input events.
+func handle_input(_event: InputEvent) -> void:
+	pass
+```
+
+---
+
+## 💎 3. State Machine Controller (`StateMachine.gd`)
+
+```gdscript
+# res://src/core/components/state_machine/state_machine.gd
+class_name StateMachine
+extends Node
+
+## Emitted whenever active state changes.
+signal state_changed(old_state_name: StringName, new_state_name: StringName)
+
+@export var initial_state: State
+@export var debug_mode: bool = false
+
+var current_state: State = null
+var states: Dictionary[StringName, State] = {}
+var state_history: Array[StringName] = []
+
+@onready var actor: Node = get_parent()
+
+func _ready() -> void:
+	# Discover all child State nodes
+	for child in get_children():
+		if child is State:
+			var state_node: State = child as State
+			var key: StringName = StringName(state_node.name.to_snake_case())
+			states[key] = state_node
+			state_node.initialize(actor, self)
+			state_node.transitioned.connect(_on_state_transitioned.bind(state_node))
+
+	if initial_state:
+		change_state_to(initial_state)
+	elif not states.is_empty():
+		change_state_by_name(states.keys()[0])
+
+func _process(delta: float) -> void:
+	if current_state:
+		current_state.update(delta)
+
+func _physics_process(delta: float) -> void:
+	if current_state:
+		current_state.physics_update(delta)
+
+func _unhandled_input(event: InputEvent) -> void:
+	if current_state:
+		current_state.handle_input(event)
+
+## Changes active state to the specified state instance.
+func change_state_to(target_state: State, payload: Dictionary = {}) -> void:
+	if target_state == null or target_state == current_state:
+		return
+
+	var old_state_name: StringName = &""
+	if current_state:
+		old_state_name = StringName(current_state.name.to_snake_case())
+		current_state.exit()
+
+	state_history.push_front(old_state_name)
+	if state_history.size() > 10:
+		state_history.pop_back()
+
+	current_state = target_state
+	var new_state_name: StringName = StringName(current_state.name.to_snake_case())
+
+	if debug_mode:
+		print("[HSM Debug] %s: %s -> %s" % [actor.name, old_state_name, new_state_name])
+
+	current_state.enter(payload)
+	state_changed.emit(old_state_name, new_state_name)
+
+## Changes state by registered name.
+func change_state_by_name(state_name: StringName, payload: Dictionary = {}) -> void:
+	assert(states.has(state_name), "StateMachine: State '%s' not registered on node %s" % [state_name, name])
+	change_state_to(states[state_name], payload)
+
+func _on_state_transitioned(next_state_name: StringName, payload: Dictionary, sender_state: State) -> void:
+	if sender_state != current_state:
+		return
+	change_state_by_name(next_state_name, payload)
+```
+
+---
+
+## 🛡️ 4. Concrete State Example: `PlayerIdleState.gd`
+
+```gdscript
+# res://src/features/player/domain/states/player_idle_state.gd
+class_name PlayerIdleState
+extends State
+
+func enter(_payload: Dictionary = {}) -> void:
+	var character: CharacterBody2D = actor as CharacterBody2D
+	if character:
+		character.velocity.x = 0.0
+
+func physics_update(_delta: float) -> void:
+	var character: CharacterBody2D = actor as CharacterBody2D
+	if not character:
+		return
+
+	if not character.is_on_floor():
+		transitioned.emit(&"falling", {})
+		return
+
+	if Input.is_action_just_pressed("jump"):
+		transitioned.emit(&"jumping", {})
+		return
+
+	var input_x: float = Input.get_axis("move_left", "move_right")
+	if not is_zero_approx(input_x):
+		transitioned.emit(&"running", {})
+```

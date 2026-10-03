@@ -1,0 +1,12 @@
+---
+description: "Godot 4.3+ Architecture, Static Typing Standards, and Component Rules"
+globs: "*.gd, *.tscn, *.tres, *.gdshader, project.godot"
+alwaysApply: true
+---
+
+# Godot 4.x Master Architecture & Strict GDScript Rules
+
+1. **100% Static Typing**: All variables, params, and returns MUST be explicitly typed (e.g. `var x: float = 0.0`, `func f() -> void:`).
+2. **Zero Godot 3 Legacy**: Never use `yield`, `export var`, `KinematicBody`, `connect("str"...)`, `SCREEN_TEXTURE`.
+3. **Composition over Inheritance**: Use Component nodes (`HealthComponent`, `HitboxComponent`) over deep inheritance.
+4. **Decoupled Event Bus**: Communicate across scenes using typed signals via `Events` AutoLoad.

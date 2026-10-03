@@ -1,0 +1,182 @@
+---
+description: "|"
+globs: "*.gd, *.tscn, *.tres, *.gdshader, project.godot"
+alwaysApply: false
+---
+
+# 🌐 Godot 4 High-Level Multiplayer & Networking Architecture
+
+This skill provides the blueprints for implementing a **Server-Authoritative High-Level Multiplayer Architecture** in Godot 4.x.
+
+---
+
+## ⚡ 1. Network Topology & Authority Model
+
+In Godot 4, the **Server (Peer ID = 1)** is authoritative over game state. Clients send user inputs to the server via RPCs, and the server broadcasts validated states back.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Client (Peer 2)
+    participant S as Server (Peer 1)
+    
+    Note over C: Client inputs Jump/Move
+    C->>C: Execute Client-Side Prediction (Instant local move)
+    C->>S: @rpc send_player_input(input_vector, client_tick)
+    Note over S: Server simulates physics
+    S->>S: Validate movement & check collisions
+    S-->>C: @rpc sync_player_state(server_pos, server_tick)
+    Note over C: Client Reconciliation (Snap/Smooth error if diverged)
+```
+
+### 💎 Godot 4 `@rpc` Annotation Rules:
+*   `@rpc("any_peer", "call_local", "reliable")`: Can be called by any peer (client or server), executes locally and sends reliably (TCP-like).
+*   `@rpc("authority", "unreliable_ordered")`: Called only by the node's multiplayer authority, sent unreliably with order (ideal for position/rotation sync).
+*   `@rpc("call_remote")`: Runs only on remote peers, does NOT run on the caller.
+
+---
+
+## 💎 2. Production Network Manager: `NetworkManager.gd`
+
+```gdscript
+# res://src/core/services/network/network_manager.gd
+class_name NetworkManager
+extends Node
+
+signal server_created()
+signal server_connection_failed()
+signal client_connected_to_server()
+signal player_peer_joined(peer_id: int)
+signal player_peer_left(peer_id: int)
+
+const DEFAULT_PORT: int = 7777
+const MAX_PLAYERS: int = 16
+
+var peer: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
+
+func _ready() -> void:
+	multiplayer.peer_connected.connect(_on_peer_connected)
+	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
+	multiplayer.connected_to_server.connect(_on_connected_to_server)
+	multiplayer.connection_failed.connect(_on_connection_failed)
+	multiplayer.server_disconnected.connect(_on_server_disconnected)
+
+## Hosts a dedicated or listen server on the specified port.
+func host_game(port: int = DEFAULT_PORT) -> Error:
+	peer = ENetMultiplayerPeer.new()
+	var err: Error = peer.create_server(port, MAX_PLAYERS)
+	if err != OK:
+		push_error("NetworkManager: Failed to create server on port %d (Error: %s)" % [port, err])
+		return err
+
+	multiplayer.multiplayer_peer = peer
+	server_created.emit()
+	print("NetworkManager: Server hosted on port %d" % port)
+	return OK
+
+## Connects to a remote server by IP address and port.
+func join_game(server_ip: String = "127.0.0.1", port: int = DEFAULT_PORT) -> Error:
+	peer = ENetMultiplayerPeer.new()
+	var err: Error = peer.create_client(server_ip, port)
+	if err != OK:
+		push_error("NetworkManager: Failed to connect to %s:%d" % [server_ip, port])
+		return err
+
+	multiplayer.multiplayer_peer = peer
+	return OK
+
+## Gracefully closes network connections.
+func disconnect_game() -> void:
+	if peer:
+		peer.close()
+		multiplayer.multiplayer_peer = null
+
+func _on_peer_connected(peer_id: int) -> void:
+	print("NetworkManager: Peer joined: %d" % peer_id)
+	player_peer_joined.emit(peer_id)
+
+func _on_peer_disconnected(peer_id: int) -> void:
+	print("NetworkManager: Peer left: %d" % peer_id)
+	player_peer_left.emit(peer_id)
+
+func _on_connected_to_server() -> void:
+	print("NetworkManager: Connected to server successfully.")
+	client_connected_to_server.emit()
+
+func _on_connection_failed() -> void:
+	push_error("NetworkManager: Failed to connect to server.")
+	server_connection_failed.emit()
+
+func _on_server_disconnected() -> void:
+	print("NetworkManager: Server disconnected.")
+	disconnect_game()
+```
+
+---
+
+## 💎 3. Client-Predicted Network Player: `NetworkPlayerController.gd`
+
+```gdscript
+# res://src/features/player/presentation/network_player_controller.gd
+class_name NetworkPlayerController
+extends CharacterBody2D
+
+@export var move_speed: float = 200.0
+@export var synchronizer: MultiplayerSynchronizer
+
+var current_tick: int = 0
+var position_history: Dictionary[int, Vector2] = {} # tick -> predicted_position
+
+func _enter_tree() -> void:
+	# Node name is set to the peer_id (e.g. "1", "2") by MultiplayerSpawner
+	var peer_id: int = name.to_int()
+	set_multiplayer_authority(peer_id)
+
+func _physics_process(delta: float) -> void:
+	if is_multiplayer_authority():
+		current_tick += 1
+		var input_vector: Vector2 = Input.get_vector("move_left", "move_right", "move_up", "move_down")
+		
+		# 1. Local Prediction
+		velocity = input_vector * move_speed
+		move_and_slide()
+		position_history[current_tick] = global_position
+
+		# 2. Send input to Authoritative Server
+		if not multiplayer.is_server():
+			_send_input_to_server.rpc_id(1, input_vector, current_tick)
+	else:
+		# Remote puppet: smooth lerp to synchronized transform
+		if not multiplayer.is_server():
+			move_and_slide()
+
+@rpc("any_peer", "call_remote", "unreliable_ordered")
+func _send_input_to_server(input_vec: Vector2, client_tick: int) -> void:
+	if not multiplayer.is_server():
+		return
+
+	# Server processes authoritative physics step
+	velocity = input_vec.clamp(Vector2(-1, -1), Vector2(1, 1)) * move_speed
+	move_and_slide()
+
+	# Replicate validated state back to client
+	_receive_server_state.rpc_id(multiplayer.get_remote_sender_id(), global_position, client_tick)
+
+@rpc("authority", "call_remote", "unreliable_ordered")
+func _receive_server_state(server_position: Vector2, ack_tick: int) -> void:
+	if not is_multiplayer_authority():
+		return
+
+	# Reconciliation: Check if predicted position diverges from server authority
+	if position_history.has(ack_tick):
+		var predicted_pos: Vector2 = position_history[ack_tick]
+		var error_distance: float = predicted_pos.distance_to(server_position)
+
+		if error_distance > 8.0: # Divergence threshold (snapping/reconciliation)
+			global_position = server_position
+
+		# Purge old history
+		for t: int in position_history.keys():
+			if t <= ack_tick:
+				position_history.erase(t)
+```

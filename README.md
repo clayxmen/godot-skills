@@ -154,18 +154,43 @@ mindmap
 
 ---
 
-## 🚀 Quickstart
+## 🚀 Quickstart & One-Liner Installation
 
-### 1. Using with AI Coding Agents (Antigravity / Cursor / Claude Code)
-Simply reference the skill name or domain in your prompt. The agent will read the corresponding `SKILL.md` and generate compliant, warning-free GDScript:
+### 1. Universal One-Liner Installer (Into ANY Godot Project)
+You can inject Clean Architecture and all AI agent rules into **any external Godot project folder**:
+
+```powershell
+# Windows PowerShell: Bootstrap current or target project
+pwsh install.ps1 -Target "D:\MyGodotProjects\NewGame"
+
+# Or install globally for all projects on your PC:
+pwsh install.ps1 -Global
+```
+
+```bash
+# Linux / macOS:
+./install.sh --target "/path/to/my_project"
+```
+
+### 2. Standalone CLI Tool (`tools/godot_skills_cli.py`)
+```bash
+# Audit any Godot project for GDScript 2.0 type violations & Godot 3 legacy code:
+python tools/godot_skills_cli.py doctor --target "D:\MyGame"
+
+# Add specific skill templates (e.g. Combat, Inventory, Shaders):
+python tools/godot_skills_cli.py add combat --target "D:\MyGame"
+
+# Export multi-agent rules (Antigravity, Cursor, Claude Code, Copilot):
+python tools/export_ai_rules.py --target "D:\MyGame" --all
+```
+
+### 3. Using with AI Coding Agents (Antigravity / Cursor / Claude Code)
+Once installed into your project, simply prompt your AI assistant naturally. The agent will automatically detect and follow the rules:
 
 ```text
 Sample Agent Prompt:
 "Using the godot-combat-hitbox-hurtbox skill, implement a 2D melee sword attack system with freeze-frame hitstop and Perlin screen shake for the player character."
 ```
-
-### 2. Direct Template Usage
-All code templates in `skills/[skill-name]/templates/` are standalone, executable GDScript 2.0 files. Copy them directly into your project's `src/` directory.
 
 ---
 

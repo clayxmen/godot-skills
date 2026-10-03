@@ -1,0 +1,234 @@
+---
+description: "|"
+globs: "*.gd, *.tscn, *.tres, *.gdshader, project.godot"
+alwaysApply: false
+---
+
+# 🏃 Godot 4 Character Controllers (2D & 3D Precision Physics)
+
+This skill provides rock-solid, production-grade character movement controllers for **2D Precision Platformers** and **3D Kinematic Characters** using Godot 4's `CharacterBody2D` and `CharacterBody3D`.
+
+---
+
+## 🎮 1. Precision 2D Platformer Architecture
+
+A great platformer requires high responsiveness ("game feel") rather than raw realistic physics.
+
+```mermaid
+flowchart TD
+    Input["Input (Move, Jump Press/Release)"] --> JBuf["Jump Buffer Timer (0.1s)"]
+    FloorCheck["is_on_floor()"] --> CT["Coyote Timer (0.15s)"]
+    
+    JBuf & CT --> CanJump{"Can Jump?"}
+    CanJump -- Yes --> JumpExec["Apply Jump Velocity\nReset Timers"]
+    CanJump -- No --> FallExec["Apply Gravity & Clamping"]
+    
+    WallCheck["is_on_wall_only()"] --> WallSlide["Apply Wall Friction & Enable Wall Jump"]
+```
+
+### 💎 Key Platformer Formulas & Invariants:
+1. **Jump Buffering**: If the player presses Jump slightly before landing (e.g. 100ms early), store the intent and execute the instant they touch the floor.
+2. **Coyote Time**: If the player walks off a ledge, allow jumping for 150ms after leaving the floor.
+3. **Variable Jump Height**: If the player releases the jump button early while moving upward, multiply vertical velocity by a dampening factor (e.g. `0.5`).
+4. **Floor Snap**: Use `floor_snap_length = 8.0` to prevent unintended airborne frames when running down slopes.
+
+---
+
+## 🕹️ 2. Production 2D Platformer Controller
+
+```gdscript
+# res://src/features/player/presentation/platformer_controller_2d.gd
+class_name PlatformerController2D
+extends CharacterBody2D
+
+@export_group("Horizontal Movement")
+@export var max_speed: float = 240.0
+@export var acceleration: float = 1200.0
+@export var friction: float = 1400.0
+@export var air_acceleration: float = 800.0
+@export var air_friction: float = 400.0
+
+@export_group("Jump Physics")
+@export var jump_height: float = 64.0:
+	set(val):
+		jump_height = val
+		_calculate_jump_physics()
+@export var time_to_jump_peak: float = 0.35:
+	set(val):
+		time_to_jump_peak = val
+		_calculate_jump_physics()
+@export var time_to_jump_descent: float = 0.28:
+	set(val):
+		time_to_jump_descent = val
+		_calculate_jump_physics()
+@export var jump_cut_multiplier: float = 0.45
+
+@export_group("Platformer Feel Timers")
+@export var coyote_duration: float = 0.15
+@export var jump_buffer_duration: float = 0.12
+
+@export_group("Wall Mechanics")
+@export var wall_slide_max_speed: float = 120.0
+@export var wall_jump_velocity: Vector2 = Vector2(220.0, -320.0)
+
+var jump_velocity: float = 0.0
+var jump_gravity: float = 0.0
+var fall_gravity: float = 0.0
+
+var _coyote_timer: float = 0.0
+var _jump_buffer_timer: float = 0.0
+
+func _ready() -> void:
+	_calculate_jump_physics()
+	floor_snap_length = 8.0
+	floor_constant_speed = true
+
+func _calculate_jump_physics() -> void:
+	jump_velocity = -((2.0 * jump_height) / time_to_jump_peak)
+	jump_gravity = (2.0 * jump_height) / (time_to_jump_peak * time_to_jump_peak)
+	fall_gravity = (2.0 * jump_height) / (time_to_jump_descent * time_to_jump_descent)
+
+func _physics_process(delta: float) -> void:
+	_update_timers(delta)
+	_handle_gravity_and_jump(delta)
+	_handle_horizontal_movement(delta)
+	_handle_wall_interactions()
+	
+	move_and_slide()
+
+func _update_timers(delta: float) -> void:
+	if is_on_floor():
+		_coyote_timer = coyote_duration
+	else:
+		_coyote_timer = maxf(0.0, _coyote_timer - delta)
+
+	if Input.is_action_just_pressed("jump"):
+		_jump_buffer_timer = jump_buffer_duration
+	else:
+		_jump_buffer_timer = maxf(0.0, _jump_buffer_timer - delta)
+
+func _handle_gravity_and_jump(delta: float) -> void:
+	# Select gravity mode
+	var current_gravity: float = jump_gravity if velocity.y < 0.0 else fall_gravity
+	velocity.y += current_gravity * delta
+
+	# Execute buffered jump
+	if _jump_buffer_timer > 0.0:
+		if _coyote_timer > 0.0:
+			_perform_jump()
+		elif is_on_wall_only():
+			_perform_wall_jump()
+
+	# Variable jump height on button release
+	if Input.is_action_just_released("jump") and velocity.y < 0.0:
+		velocity.y *= jump_cut_multiplier
+
+func _perform_jump() -> void:
+	velocity.y = jump_velocity
+	_coyote_timer = 0.0
+	_jump_buffer_timer = 0.0
+
+func _perform_wall_jump() -> void:
+	var wall_normal: Vector2 = get_wall_normal()
+	velocity.x = wall_normal.x * wall_jump_velocity.x
+	velocity.y = wall_jump_velocity.y
+	_jump_buffer_timer = 0.0
+
+func _handle_horizontal_movement(delta: float) -> void:
+	var input_x: float = Input.get_axis("move_left", "move_right")
+	var is_grounded: bool = is_on_floor()
+	var accel: float = acceleration if is_grounded else air_acceleration
+	var frict: float = friction if is_grounded else air_friction
+
+	if not is_zero_approx(input_x):
+		velocity.x = move_toward(velocity.x, input_x * max_speed, accel * delta)
+	else:
+		velocity.x = move_toward(velocity.x, 0.0, frict * delta)
+
+func _handle_wall_interactions() -> void:
+	if is_on_wall_only() and velocity.y > 0.0:
+		velocity.y = minf(velocity.y, wall_slide_max_speed)
+```
+
+---
+
+## 🌲 3. Production 3D Kinematic Controller (FPS / TPS)
+
+```gdscript
+# res://src/features/player/presentation/character_controller_3d.gd
+class_name CharacterController3D
+extends CharacterBody3D
+
+@export_group("Movement Speeds")
+@export var walk_speed: float = 5.0
+@export var sprint_speed: float = 8.5
+@export var crouch_speed: float = 2.8
+@export var acceleration: float = 18.0
+@export var deceleration: float = 22.0
+@export var air_control: float = 4.0
+
+@export_group("Jump & Gravity")
+@export var jump_velocity: float = 4.8
+@export var gravity_multiplier: float = 1.4
+
+@export_group("Camera Rig")
+@export var camera_rig: Node3D
+@export var spring_arm: SpringArm3D
+@export var mouse_sensitivity: float = 0.0025
+@export var min_pitch: float = -80.0
+@export var max_pitch: float = 75.0
+
+var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 9.8) * 1.4
+var _camera_rotation: Vector2 = Vector2.ZERO
+
+func _ready() -> void:
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	floor_snap_length = 0.25
+	floor_max_angle = deg_to_rad(45.0)
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		var motion: Vector2 = (event as InputEventMouseMotion).relative
+		_camera_rotation.x -= motion.x * mouse_sensitivity
+		_camera_rotation.y = clampf(_camera_rotation.y - motion.y * mouse_sensitivity, deg_to_rad(min_pitch), deg_to_rad(max_pitch))
+
+		# Rotate body horizontally
+		rotation.y = _camera_rotation.x
+		# Rotate camera rig vertically
+		if spring_arm:
+			spring_arm.rotation.x = _camera_rotation.y
+		elif camera_rig:
+			camera_rig.rotation.x = _camera_rotation.y
+
+func _physics_process(delta: float) -> void:
+	_apply_gravity(delta)
+	_handle_jump()
+	_handle_ground_movement(delta)
+	move_and_slide()
+
+func _apply_gravity(delta: float) -> void:
+	if not is_on_floor():
+		velocity.y -= _gravity * delta
+
+func _handle_jump() -> void:
+	if Input.is_action_just_pressed("jump") and is_on_floor():
+		velocity.y = jump_velocity
+
+func _handle_ground_movement(delta: float) -> void:
+	var input_vec: Vector2 = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	var move_dir: Vector3 = (transform.basis * Vector3(input_vec.x, 0.0, input_vec.y)).normalized()
+
+	var target_speed: float = walk_speed
+	if Input.is_action_pressed("sprint"):
+		target_speed = sprint_speed
+	elif Input.is_action_pressed("crouch"):
+		target_speed = crouch_speed
+
+	var current_accel: float = acceleration if is_on_floor() else air_control
+	if move_dir.length() > 0.0:
+		velocity.x = move_toward(velocity.x, move_dir.x * target_speed, current_accel * delta * target_speed)
+		velocity.z = move_toward(velocity.z, move_dir.z * target_speed, current_accel * delta * target_speed)
+	else:
+		velocity.x = move_toward(velocity.x, 0.0, deceleration * delta * walk_speed)
+		velocity.z = move_toward(velocity.z, 0.0, deceleration * delta * walk_speed)
+```

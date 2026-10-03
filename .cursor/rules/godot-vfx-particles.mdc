@@ -1,0 +1,119 @@
+---
+description: "|"
+globs: "*.gd, *.tscn, *.tres, *.gdshader, project.godot"
+alwaysApply: false
+---
+
+# ✨ Godot 4 GPU Particles & Visual Effects (VFX) Mastery
+
+This skill provides the architectural foundation and components for building juice-packed **2D & 3D GPU Particle Systems** in Godot 4.x.
+
+---
+
+## ⚡ 1. GPUParticles Architecture & Lifecycle
+
+Always prefer `GPUParticles2D`/`GPUParticles3D` over CPU particles for vastly superior rendering performance.
+
+```mermaid
+flowchart TD
+    Emitter["GPUParticles2D / 3D\n(one_shot: true, exploding: true)"] --> Mat["ParticleProcessMaterial\n(Direction, Velocity, Turbulence)"]
+    Mat --> SubAtCol["Sub-Emitter: AT_COLLISION\n(Sparks on floor/walls)"]
+    Mat --> SubAtEnd["Sub-Emitter: AT_END\n(Smoke puff on particle death)"]
+    Emitter --> Cleanup["Signal: finished -> queue_free() or return to pool"]
+```
+
+### 💎 Key GPU Particle Invariants:
+1. **One-Shot Auto Cleanup**: Always connect the `finished` signal to either `queue_free()` or return the emitter to an object pool.
+2. **Sub-Emitters**: Godot 4 supports GPU sub-emitters. Create the parent emitter, then assign the sub-emitter node in the `sub_emitter` property of the `ParticleProcessMaterial`.
+3. **Turbulence**: Use GPU Particle Turbulence for organic fluid/smoke motion without CPU overhead.
+
+---
+
+## 💎 2. Self-Cleaning VFX Spawner: `VFXSpawnerComponent.gd`
+
+```gdscript
+# res://src/core/components/vfx/vfx_spawner_component.gd
+class_name VFXSpawnerComponent
+extends Node
+
+## Spawns a one-shot particle scene in world space and automatically cleans it up.
+static func spawn_at(vfx_scene: PackedScene, world_position: Vector2, parent_tree: Node = null) -> Node:
+	if vfx_scene == null:
+		return null
+
+	var instance: Node = vfx_scene.instantiate()
+	if parent_tree:
+		parent_tree.add_child(instance)
+	else:
+		Engine.get_main_loop().root.add_child(instance)
+
+	if instance is Node2D:
+		(instance as Node2D).global_position = world_position
+	elif instance is Node3D:
+		(instance as Node3D).global_position = Vector3(world_position.x, 0.0, world_position.y)
+
+	# Auto-cleanup when particles finish
+	if instance is GPUParticles2D:
+		var p2d: GPUParticles2D = instance as GPUParticles2D
+		p2d.one_shot = true
+		p2d.emitting = true
+		p2d.finished.connect(p2d.queue_free)
+	elif instance is GPUParticles3D:
+		var p3d: GPUParticles3D = instance as GPUParticles3D
+		p3d.one_shot = true
+		p3d.emitting = true
+		p3d.finished.connect(p3d.queue_free)
+
+	return instance
+```
+
+---
+
+## 💎 3. High-Performance Particle Pool: `ImpactVFXPool.gd`
+
+```gdscript
+# res://src/core/services/vfx/impact_vfx_pool.gd
+class_name ImpactVFXPool
+extends Node
+
+@export var vfx_template: PackedScene
+@export var initial_pool_size: int = 16
+
+var _available_pool: Array[GPUParticles2D] = []
+
+func _ready() -> void:
+	if vfx_template == null:
+		return
+
+	for i in range(initial_pool_size):
+		var emitter: GPUParticles2D = vfx_template.instantiate() as GPUParticles2D
+		if emitter:
+			emitter.one_shot = true
+			emitter.emitting = false
+			emitter.finished.connect(_on_emitter_finished.bind(emitter))
+			add_child(emitter)
+			_available_pool.append(emitter)
+
+## Plays an impact particle effect at target coordinates without memory allocation.
+func play_impact(world_pos: Vector2, rotation_angle: float = 0.0) -> void:
+	var emitter: GPUParticles2D = null
+	if _available_pool.is_empty():
+		# Dynamic expansion if needed
+		if vfx_template:
+			emitter = vfx_template.instantiate() as GPUParticles2D
+			emitter.one_shot = true
+			emitter.finished.connect(_on_emitter_finished.bind(emitter))
+			add_child(emitter)
+	else:
+		emitter = _available_pool.pop_back()
+
+	if emitter:
+		emitter.global_position = world_pos
+		emitter.global_rotation = rotation_angle
+		emitter.restart()
+		emitter.emitting = true
+
+func _on_emitter_finished(emitter: GPUParticles2D) -> void:
+	emitter.emitting = false
+	_available_pool.append(emitter)
+```
