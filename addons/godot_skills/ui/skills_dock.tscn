@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://b7v2y4k3m1x9p"]
+[gd_scene load_steps=2 format=3]
 
 [ext_resource type="Script" path="res://addons/godot_skills/ui/skills_dock.gd" id="1_skills_dock"]
 

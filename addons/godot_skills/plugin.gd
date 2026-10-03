@@ -4,30 +4,33 @@ extends EditorPlugin
 ## Main EditorPlugin entry point for Godot Skills Suite.
 ## Registers the Skills Dock panel, menu items, and integrates with the Godot 4 Editor lifecycle.
 
-const DOCK_SCENE: PackedScene = preload("res://addons/godot_skills/ui/skills_dock.tscn")
-const PLUGIN_ICON: Texture2D = preload("res://addons/godot_skills/icon.svg")
+const DOCK_SCENE_PATH: String = "res://addons/godot_skills/ui/skills_dock.tscn"
+const ICON_PATH: String = "res://addons/godot_skills/icon.svg"
 
 var dock_instance: Control = null
 
 func _enter_tree() -> void:
-	# Instantiate and add dock to right editor dock panel
-	if DOCK_SCENE != null:
-		dock_instance = DOCK_SCENE.instantiate() as Control
-		if dock_instance != null:
-			if dock_instance.has_method("set_undo_redo"):
-				dock_instance.call("set_undo_redo", get_undo_redo())
-			add_control_to_dock(EditorPlugin.DOCK_SLOT_RIGHT_UL, dock_instance)
+	# 1. Instantiate and add dock to right editor dock panel safely
+	if ResourceLoader.exists(DOCK_SCENE_PATH):
+		var dock_scene: PackedScene = load(DOCK_SCENE_PATH) as PackedScene
+		if dock_scene != null:
+			dock_instance = dock_scene.instantiate() as Control
+			if dock_instance != null:
+				dock_instance.name = "Godot Skills"
+				if dock_instance.has_method("set_undo_redo"):
+					dock_instance.call("set_undo_redo", get_undo_redo())
+				add_control_to_dock(EditorPlugin.DOCK_SLOT_RIGHT_UL, dock_instance)
 
-	# Register Project Tools menu entries
+	# 2. Register Project Tools menu entries
 	add_tool_menu_item("Godot Skills: ⚡ 1-Click AI Setup", _on_menu_ai_setup)
 	add_tool_menu_item("Godot Skills: 🩺 Run Doctor Audit", _on_menu_doctor_audit)
 
 func _exit_tree() -> void:
-	# Remove menu items
+	# 1. Remove menu items
 	remove_tool_menu_item("Godot Skills: ⚡ 1-Click AI Setup")
 	remove_tool_menu_item("Godot Skills: 🩺 Run Doctor Audit")
 
-	# Clean up dock
+	# 2. Clean up dock
 	if is_instance_valid(dock_instance):
 		remove_control_from_docks(dock_instance)
 		dock_instance.free()
@@ -37,7 +40,9 @@ func _get_plugin_name() -> String:
 	return "Godot Skills"
 
 func _get_plugin_icon() -> Texture2D:
-	return PLUGIN_ICON
+	if ResourceLoader.exists(ICON_PATH):
+		return load(ICON_PATH) as Texture2D
+	return null
 
 func _on_menu_ai_setup() -> void:
 	var result: Dictionary = GodotAIContextGenerator.generate_all_ai_contexts()

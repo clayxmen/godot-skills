@@ -34,7 +34,7 @@ extends Control
 # Tab 6: Curriculum Roadmap
 @onready var roadmap_list_container: VBoxContainer = $VBox/TabContainer/Roadmap/Scroll/RoadmapList
 
-var undo_redo: UndoRedo = null
+var undo_redo: Object = null
 
 func _ready() -> void:
 	if not Engine.is_editor_hint():
@@ -48,7 +48,7 @@ func _ready() -> void:
 	_setup_roadmap_tab()
 
 ## Sets the undo_redo instance passed from the plugin
-func set_undo_redo(p_undo_redo: UndoRedo) -> void:
+func set_undo_redo(p_undo_redo: Object) -> void:
 	undo_redo = p_undo_redo
 
 # ==========================================

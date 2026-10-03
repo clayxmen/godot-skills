@@ -9,7 +9,7 @@ const TEMPLATES_DIR: String = "res://addons/godot_skills/templates/"
 const DEST_DIR: String = "res://src/components/"
 
 ## Injects a component by its identifier into the target parent node within the edited scene.
-static func inject_component(component_id: StringName, parent_node: Node, undo_redo: UndoRedo) -> Dictionary:
+static func inject_component(component_id: StringName, parent_node: Node, undo_redo: Object = null) -> Dictionary:
 	if not is_instance_valid(parent_node):
 		return {"success": false, "message": "Target parent node is invalid."}
 	
