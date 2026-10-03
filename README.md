@@ -21,6 +21,7 @@
 [✨ Overview](#-overview) •
 [🏛️ Architecture Philosophy](#️-architecture-philosophy) •
 [🗺️ 25 Mega Skills Matrix](#️-25-mega-skills-matrix) •
+[🌟 Awesome Godot Hub](AWESOME_GODOT.md) •
 [🚀 Quickstart](#-quickstart) •
 [🧪 Automated Testing & CI/CD](#-automated-testing--cicd) •
 [🤝 Contributing](#-contributing) •
@@ -160,11 +161,12 @@ mindmap
 Install and enable the addon directly in your Godot 4.3+ project:
 1. Copy the `addons/godot_skills/` folder into your project's `res://addons/` directory.
 2. In Godot, go to **Project -> Project Settings -> Plugins** and enable **"Godot Skills AI & Component Suite"**.
-3. A new **"Godot Skills"** dock will appear in the right editor panel with 4 tabs:
+3. A new **"Godot Skills"** dock will appear in the right editor panel with 5 tabs:
    - **⚡ 1-Click AI Setup**: Generates `.gemini/skills/`, `.cursor/rules/`, `CLAUDE.md`, and `.github/copilot-instructions.md` with one click.
    - **🧩 Component Injector**: Select a node in the Scene tree and click **"➕ Inject Node"** to insert `HealthComponent`, `HitboxComponent2D`, `StateMachine`, `InputBufferComponent`, or `SmartCameraController2D` with auto-copied dependencies and full Undo/Redo support!
    - **📚 Skills Catalog**: Search, filter, and inspect all 25 Mega Skills with 1-click **Copy AI Prompt** buttons.
    - **🩺 Project Doctor**: Audit all project GDScript files for 100% static typing & legacy Godot 3 patterns with jump-to-code navigation.
+   - **🌟 Godot Awesome**: Built-in curated directory of 30+ premier addons (Jolt, Phantom Camera, Dialogic, Terrain3D), masterclass courses (GDQuest, Clear Code), shader libraries, game math algorithms (Red Blob Games), and CC0 asset archives (Kenney, Sonniss) with 1-click **Open in Browser** and **Ask AI Prompt** integrations! (See also [`AWESOME_GODOT.md`](AWESOME_GODOT.md))
 
 ### 2. Universal One-Liner Installer (Into ANY Godot Project)
 You can inject Clean Architecture and all AI agent rules into **any external Godot project folder**:

@@ -21,6 +21,7 @@
 [✨ Giới Thiệu](#-giới-thiệu) •
 [🏛️ Triết Lý Thiết Kế](#️-triết-lý-thiết-kế) •
 [🗺️ Ma Trận 25 Mega Skills](#️-ma-trận-25-mega-skills) •
+[🌟 Awesome Godot Hub](AWESOME_GODOT_VI.md) •
 [🚀 Bắt Đầu Nhanh](#-bắt-đầu-nhanh-quickstart) •
 [🧪 Kiểm Thử & CI/CD](#-kiểm-thử--cicd) •
 [🤝 Đóng Góp](#-đóng-góp-contributing) •
@@ -158,11 +159,12 @@ mindmap
 Cài đặt và kích hoạt Plugin ngay trong Godot Editor 4.3+:
 1. Copy thư mục `addons/godot_skills/` vào thư mục `res://addons/` của dự án bạn.
 2. Trong Godot, vào **Project -> Project Settings -> Plugins** và bật **"Godot Skills AI & Component Suite"**.
-3. Tab **"Godot Skills"** sẽ xuất hiện ở thanh bên phải của Editor với 4 tính năng mạnh mẽ:
+3. Tab **"Godot Skills"** sẽ xuất hiện ở thanh bên phải của Editor với 5 tính năng mạnh mẽ:
    - **⚡ 1-Click AI Setup**: Tự động sinh file `.gemini/skills/`, `.cursor/rules/`, `CLAUDE.md`, và `.github/copilot-instructions.md` chỉ với 1 click.
    - **🧩 Component Injector**: Chọn Node trên Scene tree và bấm **"➕ Inject Node"** để chèn nhanh `HealthComponent`, `HitboxComponent2D`, `StateMachine`, `InputBufferComponent`, `SmartCameraController2D` có hỗ trợ Undo/Redo (Ctrl+Z) và tự động nạp dependencies!
    - **📚 Skills Catalog**: Tra cứu, lọc theo phân hệ và copy prompt AI của 25 Mega Skills.
    - **🩺 Project Doctor**: Quét toàn bộ mã nguồn GDScript trong dự án để phát hiện thiếu type-safe hoặc dính cú pháp cũ Godot 3.
+   - **🌟 Godot Awesome**: Kho tài nguyên tuyển chọn tích hợp sẵn 30+ plugin hàng đầu (Jolt, Phantom Camera, Dialogic, Terrain3D), giáo trình masterclass (GDQuest, Clear Code), thư viện shader, thuật toán toán game (Red Blob Games) và kho asset CC0 miễn phí (Kenney, Sonniss) với nút mở trình duyệt và copy câu lệnh Prompt AI chỉ với 1-click! (Xem chi tiết tại [`AWESOME_GODOT_VI.md`](AWESOME_GODOT_VI.md))
 
 ### 2. Cài Đặt Nhanh 1 Dòng Lệnh Vào Bất Kỳ Dự Án Godot Nào
 Bạn có thể cài đặt bộ khung Clean Architecture và toàn bộ AI Agent rules vào **bất kỳ thư mục dự án Godot nào trên máy**:
