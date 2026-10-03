@@ -3,7 +3,7 @@ class_name GodotSkillsDock
 extends Control
 
 ## Editor Dock UI for Godot Skills Suite.
-## Provides 1-Click AI Setup, Visual Component Injection, Skills Catalog, Project Doctor, and Godot Awesome Hub.
+## Provides 1-Click AI Setup, Visual Component Injection, Skills Catalog, Project Doctor, Awesome Hub, and Master Curriculum.
 
 @onready var tab_container: TabContainer = $VBox/TabContainer
 
@@ -31,6 +31,9 @@ extends Control
 @onready var awesome_search_input: LineEdit = $VBox/TabContainer/Awesome/Header/SearchInput
 @onready var awesome_list_container: VBoxContainer = $VBox/TabContainer/Awesome/Scroll/AwesomeList
 
+# Tab 6: Curriculum Roadmap
+@onready var roadmap_list_container: VBoxContainer = $VBox/TabContainer/Roadmap/Scroll/RoadmapList
+
 var undo_redo: UndoRedo = null
 
 func _ready() -> void:
@@ -42,6 +45,7 @@ func _ready() -> void:
 	_setup_skills_tab()
 	_setup_doctor_tab()
 	_setup_awesome_tab()
+	_setup_roadmap_tab()
 
 ## Sets the undo_redo instance passed from the plugin
 func set_undo_redo(p_undo_redo: UndoRedo) -> void:
@@ -357,6 +361,59 @@ func _render_awesome_list() -> void:
 		vbox.add_child(hbox_actions)
 		panel.add_child(vbox)
 		awesome_list_container.add_child(panel)
+
+# ==========================================
+# 🎓 TAB 6: MASTER CURRICULUM ROADMAP
+# ==========================================
+func _setup_roadmap_tab() -> void:
+	if roadmap_list_container == null:
+		return
+
+	for child in roadmap_list_container.get_children():
+		child.queue_free()
+
+	var levels: Array[Dictionary] = GodotCurriculumRegistry.get_all_levels()
+	for lvl: Dictionary in levels:
+		var panel: PanelContainer = PanelContainer.new()
+		var vbox: VBoxContainer = VBoxContainer.new()
+		vbox.theme_override_constants.separation = 4
+
+		var title_lbl: Label = Label.new()
+		title_lbl.text = String(lvl.get("name", "")) + " (" + String(lvl.get("duration", "")) + ")"
+		title_lbl.add_theme_font_size_override("font_size", 13)
+
+		var capstone_lbl: Label = Label.new()
+		capstone_lbl.text = "🎮 Capstone Project: " + String(lvl.get("capstone", ""))
+		capstone_lbl.add_theme_font_size_override("font_size", 11)
+		capstone_lbl.modulate = Color(0.2, 0.9, 0.4, 1.0)
+
+		var focus_lbl: Label = Label.new()
+		focus_lbl.text = "Focus: " + String(lvl.get("focus", ""))
+		focus_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		focus_lbl.add_theme_font_size_override("font_size", 11)
+		focus_lbl.modulate = Color(0.85, 0.85, 0.85, 1.0)
+
+		var skills_list: Array = lvl.get("skills", [])
+		var skills_lbl: Label = Label.new()
+		skills_lbl.text = "Skills: " + ", ".join(skills_list)
+		skills_lbl.add_theme_font_size_override("font_size", 10)
+		skills_lbl.modulate = Color(0.4, 0.8, 1.0, 0.9)
+
+		var hbox_actions: HBoxContainer = HBoxContainer.new()
+		var btn_copy_prompt: Button = Button.new()
+		btn_copy_prompt.text = "📋 Copy AI Study Prompt"
+		var prompt_hint: String = String(lvl.get("prompt_hint", ""))
+		btn_copy_prompt.pressed.connect(_on_copy_text_pressed.bind(prompt_hint, btn_copy_prompt))
+
+		hbox_actions.add_child(btn_copy_prompt)
+
+		vbox.add_child(title_lbl)
+		vbox.add_child(capstone_lbl)
+		vbox.add_child(focus_lbl)
+		vbox.add_child(skills_lbl)
+		vbox.add_child(hbox_actions)
+		panel.add_child(vbox)
+		roadmap_list_container.add_child(panel)
 
 # ==========================================
 # 📋 CLIPBOARD HELPER

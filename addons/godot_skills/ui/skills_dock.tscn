@@ -181,3 +181,27 @@ size_flags_vertical = 3
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 6
+
+[node name="Roadmap" type="VBoxContainer" parent="VBox/TabContainer"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 6
+metadata/_tab_index = 5
+
+[node name="Header" type="VBoxContainer" parent="VBox/TabContainer/Roadmap"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="TitleLabel" type="Label" parent="VBox/TabContainer/Roadmap/Header"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "🎓 4-Level Masterclass Roadmap (Beginner -> Master)"
+
+[node name="Scroll" type="ScrollContainer" parent="VBox/TabContainer/Roadmap"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="RoadmapList" type="VBoxContainer" parent="VBox/TabContainer/Roadmap/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
