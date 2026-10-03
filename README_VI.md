@@ -18,11 +18,12 @@
 
 ---
 
-[✨ Giới Thiệu](#-giới-thiệu) •
+[✨ Giới Thiệu](#-giới-thiệu-overview) •
+[🚀 Hướng Dẫn Người Mới](GETTING_STARTED_VI.md) •
 [🏛️ Triết Lý Thiết Kế](#️-triết-lý-thiết-kế) •
 [🗺️ Ma Trận 25 Mega Skills](#️-ma-trận-25-mega-skills) •
 [🌟 Awesome Godot Hub](AWESOME_GODOT_VI.md) •
-[🚀 Bắt Đầu Nhanh](#-bắt-đầu-nhanh-quickstart) •
+[⚡ Bắt Đầu Nhanh](#-bắt-đầu-nhanh-quickstart--one-liner-installer) •
 [🧪 Kiểm Thử & CI/CD](#-kiểm-thử--cicd) •
 [🤝 Đóng Góp](#-đóng-góp-contributing) •
 [📄 Bản Quyền](#-bản-quyền-license)

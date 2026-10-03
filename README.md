@@ -19,10 +19,11 @@
 ---
 
 [✨ Overview](#-overview) •
+[🚀 Getting Started Guide](GETTING_STARTED.md) •
 [🏛️ Architecture Philosophy](#️-architecture-philosophy) •
 [🗺️ 25 Mega Skills Matrix](#️-25-mega-skills-matrix) •
 [🌟 Awesome Godot Hub](AWESOME_GODOT.md) •
-[🚀 Quickstart](#-quickstart) •
+[⚡ Quickstart & Install](#-quickstart--one-liner-installation) •
 [🧪 Automated Testing & CI/CD](#-automated-testing--cicd) •
 [🤝 Contributing](#-contributing) •
 [📄 License](#-license)
