@@ -154,7 +154,17 @@ mindmap
 
 ## 🚀 Bắt Đầu Nhanh (Quickstart & One-Liner Installer)
 
-### 1. Cài Đặt Nhanh 1 Dòng Lệnh Vào Bất Kỳ Dự Án Godot Nào
+### 1. Sử Dụng Godot Editor Addon Trực Tiếp (`addons/godot_skills`)
+Cài đặt và kích hoạt Plugin ngay trong Godot Editor 4.3+:
+1. Copy thư mục `addons/godot_skills/` vào thư mục `res://addons/` của dự án bạn.
+2. Trong Godot, vào **Project -> Project Settings -> Plugins** và bật **"Godot Skills AI & Component Suite"**.
+3. Tab **"Godot Skills"** sẽ xuất hiện ở thanh bên phải của Editor với 4 tính năng mạnh mẽ:
+   - **⚡ 1-Click AI Setup**: Tự động sinh file `.gemini/skills/`, `.cursor/rules/`, `CLAUDE.md`, và `.github/copilot-instructions.md` chỉ với 1 click.
+   - **🧩 Component Injector**: Chọn Node trên Scene tree và bấm **"➕ Inject Node"** để chèn nhanh `HealthComponent`, `HitboxComponent2D`, `StateMachine`, `InputBufferComponent`, `SmartCameraController2D` có hỗ trợ Undo/Redo (Ctrl+Z) và tự động nạp dependencies!
+   - **📚 Skills Catalog**: Tra cứu, lọc theo phân hệ và copy prompt AI của 25 Mega Skills.
+   - **🩺 Project Doctor**: Quét toàn bộ mã nguồn GDScript trong dự án để phát hiện thiếu type-safe hoặc dính cú pháp cũ Godot 3.
+
+### 2. Cài Đặt Nhanh 1 Dòng Lệnh Vào Bất Kỳ Dự Án Godot Nào
 Bạn có thể cài đặt bộ khung Clean Architecture và toàn bộ AI Agent rules vào **bất kỳ thư mục dự án Godot nào trên máy**:
 
 ```powershell
@@ -170,7 +180,7 @@ pwsh install.ps1 -Global
 ./install.sh --target "/path/to/my_project"
 ```
 
-### 2. Sử Dụng Công Cụ CLI (`tools/godot_skills_cli.py`)
+### 3. Sử Dụng Công Cụ CLI (`tools/godot_skills_cli.py`)
 ```bash
 # Quét và kiểm tra độ chuẩn mực Type-Safety & lỗi thời Godot 3:
 python tools/godot_skills_cli.py doctor --target "D:\MyGame"
@@ -182,7 +192,7 @@ python tools/godot_skills_cli.py add combat --target "D:\MyGame"
 python tools/export_ai_rules.py --target "D:\MyGame" --all
 ```
 
-### 3. Prompting Với AI Coding Assistants (Antigravity / Cursor / Claude Code)
+### 4. Prompting Với AI Coding Assistants (Antigravity / Cursor / Claude Code)
 Sau khi cài đặt vào dự án, bạn chỉ cần gõ prompt như bình thường. AI sẽ tự động kích hoạt kiến thức chuyên gia:
 
 ```text

@@ -1,0 +1,156 @@
+[gd_scene load_steps=2 format=3 uid="uid://b7v2y4k3m1x9p"]
+
+[ext_resource type="Script" path="res://addons/godot_skills/ui/skills_dock.gd" id="1_skills_dock"]
+
+[node name="GodotSkillsDock" type="Control"]
+custom_minimum_size = Vector2(320, 450)
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_skills_dock")
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 6
+
+[node name="Header" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+text = "⚡ Godot Skills AI & Component Suite"
+
+[node name="Version" type="Label" parent="VBox/Header"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
+theme_override_font_sizes/font_size = 11
+text = "v1.0.0"
+
+[node name="HSeparator" type="HSeparator" parent="VBox"]
+layout_mode = 2
+
+[node name="TabContainer" type="TabContainer" parent="VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+current_tab = 0
+
+[node name="AISetup" type="MarginContainer" parent="VBox/TabContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+metadata/_tab_index = 0
+
+[node name="VBox" type="VBoxContainer" parent="VBox/TabContainer/AISetup"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Banner" type="Label" parent="VBox/TabContainer/AISetup/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "1-Click Multi-Agent AI Context Generator"
+
+[node name="StatusLabel" type="RichTextLabel" parent="VBox/TabContainer/AISetup/VBox"]
+custom_minimum_size = Vector2(0, 110)
+layout_mode = 2
+bbcode_enabled = true
+text = "Checking AI Agent status..."
+
+[node name="BtnGenerateAI" type="Button" parent="VBox/TabContainer/AISetup/VBox"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+text = "⚡ 1-Click Generate & Sync All AI Rules"
+
+[node name="LogOutput" type="RichTextLabel" parent="VBox/TabContainer/AISetup/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+text = "Ready to generate context for Antigravity, Cursor, Claude Code, and Copilot."
+
+[node name="Components" type="VBoxContainer" parent="VBox/TabContainer"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 6
+metadata/_tab_index = 1
+
+[node name="Header" type="HBoxContainer" parent="VBox/TabContainer/Components"]
+layout_mode = 2
+
+[node name="StatusLabel" type="Label" parent="VBox/TabContainer/Components/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 11
+text = "Select a parent node in Scene Tree, then click Inject Node:"
+
+[node name="Scroll" type="ScrollContainer" parent="VBox/TabContainer/Components"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="CompList" type="VBoxContainer" parent="VBox/TabContainer/Components/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="Skills" type="VBoxContainer" parent="VBox/TabContainer"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 6
+metadata/_tab_index = 2
+
+[node name="Header" type="VBoxContainer" parent="VBox/TabContainer/Skills"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="CategoryOption" type="OptionButton" parent="VBox/TabContainer/Skills/Header"]
+layout_mode = 2
+
+[node name="SearchInput" type="LineEdit" parent="VBox/TabContainer/Skills/Header"]
+layout_mode = 2
+placeholder_text = "Search skills (e.g. combat, pathfinding, shader)..."
+clear_button_enabled = true
+
+[node name="Scroll" type="ScrollContainer" parent="VBox/TabContainer/Skills"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="SkillsList" type="VBoxContainer" parent="VBox/TabContainer/Skills/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="Doctor" type="VBoxContainer" parent="VBox/TabContainer"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 6
+metadata/_tab_index = 3
+
+[node name="Header" type="VBoxContainer" parent="VBox/TabContainer/Doctor"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="BtnRunDoctor" type="Button" parent="VBox/TabContainer/Doctor/Header"]
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+text = "🩺 Run Type-Safety & Migration Audit"
+
+[node name="SummaryLabel" type="RichTextLabel" parent="VBox/TabContainer/Doctor/Header"]
+custom_minimum_size = Vector2(0, 45)
+layout_mode = 2
+bbcode_enabled = true
+text = "Click above to audit all project scripts for 100% static typing & Godot 3 deprecations."
+
+[node name="DoctorTree" type="Tree" parent="VBox/TabContainer/Doctor"]
+layout_mode = 2
+size_flags_vertical = 3

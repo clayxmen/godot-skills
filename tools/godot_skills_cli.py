@@ -147,11 +147,17 @@ def cmd_doctor(target_path: Path) -> int:
             continue
 
         try:
-            content = gd_file.read_text(encoding="utf-8")
+            raw_content = gd_file.read_text(encoding="utf-8")
         except Exception:
             continue
 
-        lines = content.splitlines()
+        # Replace multiline strings with placeholder newlines to preserve line numbering
+        def replace_multiline(m):
+            newlines = m.group(0).count('\n')
+            return '\n' * newlines
+
+        clean_content = re.sub(r'"""[\s\S]*?"""|\'\'\'[\s\S]*?\'\'\'', replace_multiline, raw_content)
+        lines = clean_content.splitlines()
         file_has_issue = False
 
         for line_num, line in enumerate(lines, 1):
@@ -159,8 +165,11 @@ def cmd_doctor(target_path: Path) -> int:
             if not line_str or line_str.startswith("#"):
                 continue
 
+            # Strip single line string literals
+            code_line = re.sub(r'"[^"\\]*(?:\\.[^"\\]*)*"|\'[^\'\\]*(?:\\.[^\'\\]*)*\'', '""', line_str)
+
             for pattern, message in PATTERNS:
-                if re.search(pattern, line_str):
+                if re.search(pattern, code_line):
                     if not file_has_issue:
                         rel_path = gd_file.relative_to(target_path)
                         print(f"[!] {rel_path}:")

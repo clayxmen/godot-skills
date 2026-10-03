@@ -156,7 +156,17 @@ mindmap
 
 ## 🚀 Quickstart & One-Liner Installation
 
-### 1. Universal One-Liner Installer (Into ANY Godot Project)
+### 1. Native Godot Editor Plugin (`addons/godot_skills`)
+Install and enable the addon directly in your Godot 4.3+ project:
+1. Copy the `addons/godot_skills/` folder into your project's `res://addons/` directory.
+2. In Godot, go to **Project -> Project Settings -> Plugins** and enable **"Godot Skills AI & Component Suite"**.
+3. A new **"Godot Skills"** dock will appear in the right editor panel with 4 tabs:
+   - **⚡ 1-Click AI Setup**: Generates `.gemini/skills/`, `.cursor/rules/`, `CLAUDE.md`, and `.github/copilot-instructions.md` with one click.
+   - **🧩 Component Injector**: Select a node in the Scene tree and click **"➕ Inject Node"** to insert `HealthComponent`, `HitboxComponent2D`, `StateMachine`, `InputBufferComponent`, or `SmartCameraController2D` with auto-copied dependencies and full Undo/Redo support!
+   - **📚 Skills Catalog**: Search, filter, and inspect all 25 Mega Skills with 1-click **Copy AI Prompt** buttons.
+   - **🩺 Project Doctor**: Audit all project GDScript files for 100% static typing & legacy Godot 3 patterns with jump-to-code navigation.
+
+### 2. Universal One-Liner Installer (Into ANY Godot Project)
 You can inject Clean Architecture and all AI agent rules into **any external Godot project folder**:
 
 ```powershell
@@ -172,7 +182,7 @@ pwsh install.ps1 -Global
 ./install.sh --target "/path/to/my_project"
 ```
 
-### 2. Standalone CLI Tool (`tools/godot_skills_cli.py`)
+### 3. Standalone CLI Tool (`tools/godot_skills_cli.py`)
 ```bash
 # Audit any Godot project for GDScript 2.0 type violations & Godot 3 legacy code:
 python tools/godot_skills_cli.py doctor --target "D:\MyGame"
@@ -184,7 +194,7 @@ python tools/godot_skills_cli.py add combat --target "D:\MyGame"
 python tools/export_ai_rules.py --target "D:\MyGame" --all
 ```
 
-### 3. Using with AI Coding Agents (Antigravity / Cursor / Claude Code)
+### 4. Using with AI Coding Agents (Antigravity / Cursor / Claude Code)
 Once installed into your project, simply prompt your AI assistant naturally. The agent will automatically detect and follow the rules:
 
 ```text
